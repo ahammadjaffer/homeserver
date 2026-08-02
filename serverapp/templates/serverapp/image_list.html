@@ -3,119 +3,462 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Gallery & Upload</title>
+    <title>Categorized Media Gallery</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 30px;
-            background-color: #f9f9f9;
-            color: #333;
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; margin: 30px; background-color: #f9f9f9; color: #333; }
+        h1 { color: #2c3e50; }
+        
+        .section-header {
+            color: #34495e;
+            border-bottom: 2px solid #34495e;
+            padding-bottom: 8px;
+            margin-top: 40px;
+            margin-bottom: 20px;
         }
 
-        h1 {
-            color: #2c3e50;
-        }
+        .upload-section { background: #ffffff; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px; margin-bottom: 30px; max-width: 480px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .upload-section p { margin-bottom: 12px; font-weight: bold; }
+        input[type="file"] { margin-bottom: 15px; display: block; width: 100%; }
+        .btn-upload { background-color: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold; width: 100%; }
+        .btn-upload:hover { background-color: #0056b3; }
 
-        .upload-section {
+        /* --- UPLOADER PROGRESS DRAWER --- */
+        .upload-progress-container {
+            display: none;
             background: #ffffff;
-            border: 1px solid #e0e0e0;
-            padding: 20px;
+            border: 1px solid #007bff;
             border-radius: 8px;
+            padding: 20px;
             margin-bottom: 30px;
-            max-width: 450px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            max-width: 600px;
+            box-shadow: 0 4px 12px rgba(0,123,255,0.15);
         }
 
-        .upload-section form p {
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .overall-progress-bar-bg {
+            width: 100%;
+            height: 14px;
+            background: #e9ecef;
+            border-radius: 7px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .overall-progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.2s ease;
+        }
+
+        .progress-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #666;
             margin-bottom: 15px;
         }
 
-        button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 18px;
+        .file-queue-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #eee;
             border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
+            padding: 8px;
+            background: #fafafa;
         }
 
-        button:hover {
-            background-color: #0056b3;
-        }
-
-        hr {
-            border: none;
-            border-top: 1px solid #ddd;
-            margin: 30px 0;
-        }
-
-        .gallery {
+        .queue-item {
             display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            padding: 6px 0;
+            border-bottom: 1px solid #eee;
         }
 
+        .queue-item:last-child { border-bottom: none; }
+        .queue-filename { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65%; }
+
+        .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .badge-pending { background: #e2e3e5; color: #383d41; }
+        .badge-uploading { background: #cce5ff; color: #004085; }
+        .badge-done { background: #d4edda; color: #155724; }
+        .badge-failed { background: #f8d7da; color: #721c24; }
+
+        /* GALLERY & CARD STYLES */
+        .gallery { display: flex; flex-wrap: wrap; gap: 20px; }
         .card {
+            position: relative;
             background: #ffffff;
             border: 1px solid #ddd;
             padding: 12px;
             border-radius: 8px;
             text-align: center;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-            max-width: 220px;
+            width: 220px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .card img {
-            width: 200px;
-            height: 200px;
-            object-fit: cover;
-            border-radius: 4px;
-            display: block;
-            margin-bottom: 10px;
-        }
+        .delete-form { position: absolute; top: 6px; right: 6px; z-index: 10; }
+        .delete-btn { background: rgba(220, 53, 69, 0.9); color: white; border: none; border-radius: 50%; width: 26px; height: 26px; font-size: 14px; font-weight: bold; line-height: 26px; cursor: pointer; padding: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        .delete-btn:hover { background: #dc3545; transform: scale(1.1); }
 
-        .card span {
-            display: block;
-            font-size: 13px;
-            color: #555;
-            word-break: break-all;
-        }
+        .card img, .card video { width: 100%; height: 180px; object-fit: cover; border-radius: 4px; display: block; margin-bottom: 10px; background-color: #000; }
+        .card img { cursor: pointer; transition: opacity 0.2s; }
+        .card img:hover { opacity: 0.9; }
 
-        .no-images {
-            color: #777;
-            font-style: italic;
-        }
+        .card .file-icon { width: 100%; height: 180px; display: flex; align-items: center; justify-content: center; background: #eef2f5; border-radius: 4px; font-weight: bold; font-size: 18px; color: #555; margin-bottom: 10px; text-transform: uppercase; }
+        .card .file-icon.pdf-clickable { cursor: pointer; transition: background-color 0.2s; }
+        .card .file-icon.pdf-clickable:hover { background: #e0e6ed; color: #007bff; }
+
+        .card a.file-link { text-decoration: none; color: #007bff; font-size: 13px; word-break: break-all; display: block; margin-top: auto; }
+        .card a.file-link:hover { text-decoration: underline; }
+        .empty-text { color: #777; font-style: italic; }
+
+        /* LIGHTBOX MODAL */
+        .lightbox-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.88); z-index: 1000; justify-content: center; align-items: center; flex-direction: column; }
+        .lightbox-modal.active { display: flex; }
+        .lightbox-content-img { max-width: 90%; max-height: 80vh; border-radius: 6px; box-shadow: 0 5px 25px rgba(0,0,0,0.5); object-fit: contain; }
+        .lightbox-content-pdf { width: 85%; height: 85vh; border: none; border-radius: 6px; background: #fff; box-shadow: 0 5px 25px rgba(0,0,0,0.5); }
+        .lightbox-caption { color: #ffffff; margin-top: 15px; font-size: 15px; text-align: center; }
+        .lightbox-close { position: absolute; top: 20px; right: 30px; color: #ffffff; font-size: 36px; font-weight: bold; cursor: pointer; z-index: 1001; }
     </style>
 </head>
 <body>
 
-    <h1>Upload New Image</h1>
+    <h1>Upload Any File</h1>
     <div class="upload-section">
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <button type="submit">Upload Image</button>
-        </form>
+        <p>Select file(s) to upload:</p>
+        <input type="file" id="file-input" multiple>
+        <button type="button" class="btn-upload" onclick="startBatchUpload()">Upload Batch</button>
     </div>
 
-    <hr>
+    <!-- ASYNCHRONOUS PROGRESS DRAWER -->
+    <div id="upload-drawer" class="upload-progress-container">
+        <div class="progress-header">
+            <span id="progress-summary">Uploading 0/0 files...</span>
+            <span id="progress-percent">0%</span>
+        </div>
 
-    <h1>Project Image Gallery</h1>
+        <div class="overall-progress-bar-bg">
+            <div id="progress-bar-fill" class="overall-progress-bar-fill"></div>
+        </div>
 
-    {% if images %}
+        <div class="progress-stats">
+            <span id="upload-speed">Speed: 0 MB/s</span>
+            <span id="upload-eta">ETA: --</span>
+        </div>
+
+        <div id="queue-list" class="file-queue-list">
+            <!-- Populated via JavaScript -->
+        </div>
+    </div>
+
+    <!-- Images Section -->
+    <h2 class="section-header">📷 Images</h2>
+    {% if grouped_media.images %}
         <div class="gallery">
-            {% for img in images %}
+            {% for item in grouped_media.images %}
                 <div class="card">
-                    <img src="{{ MEDIA_URL }}{{ img }}" alt="{{ img }}">
-                    <span>{{ img }}</span>
+                    <form action="{% url 'delete_file' %}" method="post" class="delete-form" onsubmit="return confirm('Delete {{ item.name }}?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="file_rel_path" value="{{ item.rel_path }}">
+                        <button type="submit" class="delete-btn" title="Delete file">✕</button>
+                    </form>
+
+                    <img src="{{ item.thumb_url }}" 
+                         data-fullsrc="{{ item.url_path }}" 
+                         data-filename="{{ item.name }}"
+                         alt="{{ item.name }}" 
+                         loading="lazy"
+                         onclick="openImageLightbox(this)">
+                    
+                    <a href="{{ item.url_path }}" target="_blank" download class="file-link">{{ item.name }}</a>
                 </div>
             {% endfor %}
         </div>
     {% else %}
-        <p class="no-images">No images found in the directory.</p>
+        <p class="empty-text">No images uploaded yet.</p>
     {% endif %}
 
+    <!-- Videos Section -->
+    <h2 class="section-header">🎬 Videos</h2>
+    {% if grouped_media.videos %}
+        <div class="gallery">
+            {% for item in grouped_media.videos %}
+                <div class="card">
+                    <form action="{% url 'delete_file' %}" method="post" class="delete-form" onsubmit="return confirm('Delete {{ item.name }}?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="file_rel_path" value="{{ item.rel_path }}">
+                        <button type="submit" class="delete-btn" title="Delete file">✕</button>
+                    </form>
+
+                    <video controls preload="none">
+                        <source src="{{ item.url_path }}">
+                        Your browser does not support video playback.
+                    </video>
+                    <a href="{{ item.url_path }}" target="_blank" download class="file-link">{{ item.name }}</a>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="empty-text">No videos uploaded yet.</p>
+    {% endif %}
+
+    <!-- Documents & Files Section -->
+    <h2 class="section-header">📁 Documents & Files</h2>
+    {% if grouped_media.documents %}
+        <div class="gallery">
+            {% for item in grouped_media.documents %}
+                <div class="card">
+                    <form action="{% url 'delete_file' %}" method="post" class="delete-form" onsubmit="return confirm('Delete {{ item.name }}?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="file_rel_path" value="{{ item.rel_path }}">
+                        <button type="submit" class="delete-btn" title="Delete file">✕</button>
+                    </form>
+
+                    {% if item.ext == '.pdf' %}
+                        <div class="file-icon pdf-clickable" 
+                             data-pdfsrc="{{ item.url_path }}" 
+                             data-filename="{{ item.name }}"
+                             onclick="openPdfLightbox(this)"
+                             title="Click to preview PDF">
+                            📄 {{ item.ext }}
+                        </div>
+                        <a href="javascript:void(0)" 
+                           data-pdfsrc="{{ item.url_path }}" 
+                           data-filename="{{ item.name }}"
+                           onclick="openPdfLightbox(this)" 
+                           class="file-link">{{ item.name }}</a>
+                    {% else %}
+                        <div class="file-icon">{{ item.ext }}</div>
+                        <a href="{{ item.url_path }}" target="_blank" download class="file-link">{{ item.name }}</a>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="empty-text">No documents uploaded yet.</p>
+    {% endif %}
+
+    <!-- LIGHTBOX MODAL OVERLAY -->
+    <div id="lightbox" class="lightbox-modal" onclick="closeLightbox(event)">
+        <span class="lightbox-close" onclick="closeLightbox(event)">&times;</span>
+        <img id="lightbox-img" class="lightbox-content-img" src="" alt="Full Preview" style="display: none;">
+        <embed id="lightbox-pdf" class="lightbox-content-pdf" type="application/pdf" src="" style="display: none;">
+        <div id="lightbox-caption" class="lightbox-caption"></div>
+    </div>
+
+    <script>
+        const CSRF_TOKEN = '{{ csrf_token }}';
+        const MAX_CONCURRENT_UPLOADS = 3; // Uploads 3 files simultaneously in parallel
+
+        let uploadQueue = [];
+        let totalBytes = 0;
+        let bytesUploaded = 0;
+        let startTime = 0;
+        let completedCount = 0;
+
+        function startBatchUpload() {
+            const input = document.getElementById('file-input');
+            const files = Array.from(input.files);
+
+            if (files.length === 0) {
+                alert("Please select files first!");
+                return;
+            }
+
+            // Reset state
+            uploadQueue = files.map((file, idx) => ({
+                id: idx,
+                file: file,
+                status: 'pending',
+                uploadedBytes: 0
+            }));
+
+            totalBytes = files.reduce((acc, f) => acc + f.size, 0);
+            bytesUploaded = 0;
+            completedCount = 0;
+            startTime = Date.now();
+
+            // Render Queue UI
+            const queueList = document.getElementById('queue-list');
+            queueList.innerHTML = '';
+            uploadQueue.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'queue-item';
+                div.id = `queue-item-${item.id}`;
+                div.innerHTML = `
+                    <span class="queue-filename">${item.file.name} (${(item.file.size / (1024*1024)).toFixed(1)} MB)</span>
+                    <span class="badge badge-pending" id="badge-${item.id}">Pending</span>
+                `;
+                queueList.appendChild(div);
+            });
+
+            document.getElementById('upload-drawer').style.display = 'block';
+            processNextInQueue();
+        }
+
+        function processNextInQueue() {
+            const activeUploads = uploadQueue.filter(i => i.status === 'uploading').length;
+            const pendingItems = uploadQueue.filter(i => i.status === 'pending');
+
+            if (activeUploads < MAX_CONCURRENT_UPLOADS && pendingItems.length > 0) {
+                const itemToUpload = pendingItems[0];
+                uploadSingleFileAJAX(itemToUpload);
+                processNextInQueue(); // Trigger up to MAX_CONCURRENT_UPLOADS
+            }
+        }
+
+        function uploadSingleFileAJAX(item) {
+            item.status = 'uploading';
+            updateBadge(item.id, 'Uploading...', 'badge-uploading');
+
+            const formData = new FormData();
+            formData.append('file', item.file);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', "{% url 'upload_single_file' %}", true);
+            xhr.setRequestHeader('X-CSRFToken', CSRF_TOKEN);
+
+            let previousFileUploaded = 0;
+
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const delta = e.loaded - previousFileUploaded;
+                    previousFileUploaded = e.loaded;
+                    bytesUploaded += delta;
+                    updateOverallMetrics();
+                }
+            };
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    item.status = 'done';
+                    updateBadge(item.id, 'Done', 'badge-done');
+                } else {
+                    item.status = 'failed';
+                    updateBadge(item.id, 'Failed', 'badge-failed');
+                }
+                completedCount++;
+                checkBatchCompletion();
+            };
+
+            xhr.onerror = function() {
+                item.status = 'failed';
+                updateBadge(item.id, 'Failed', 'badge-failed');
+                completedCount++;
+                checkBatchCompletion();
+            };
+
+            xhr.send(formData);
+        }
+
+        function updateBadge(id, text, className) {
+            const badge = document.getElementById(`badge-${id}`);
+            if (badge) {
+                badge.textContent = text;
+                badge.className = `badge ${className}`;
+            }
+        }
+
+        function updateOverallMetrics() {
+            const percent = Math.min(100, Math.round((bytesUploaded / totalBytes) * 100));
+            document.getElementById('progress-bar-fill').style.width = `${percent}%`;
+            document.getElementById('progress-percent').textContent = `${percent}%`;
+            document.getElementById('progress-summary').textContent = `Uploading ${completedCount}/${uploadQueue.length} files...`;
+
+            const elapsedTime = (Date.now() - startTime) / 1000; // seconds
+            if (elapsedTime > 0) {
+                const speedMBps = ((bytesUploaded / (1024 * 1024)) / elapsedTime).toFixed(1);
+                document.getElementById('upload-speed').textContent = `Speed: ${speedMBps} MB/s`;
+
+                const remainingBytes = totalBytes - bytesUploaded;
+                const etaSeconds = Math.round(remainingBytes / (bytesUploaded / elapsedTime));
+                if (!isNaN(etaSeconds) && isFinite(etaSeconds)) {
+                    document.getElementById('upload-eta').textContent = `ETA: ${etaSeconds}s`;
+                }
+            }
+        }
+
+        function checkBatchCompletion() {
+            processNextInQueue();
+            if (completedCount === uploadQueue.length) {
+                document.getElementById('progress-summary').textContent = `🎉 All ${uploadQueue.length} files processed!`;
+                document.getElementById('progress-bar-fill').style.width = '100%';
+                document.getElementById('progress-percent').textContent = '100%';
+                setTimeout(() => {
+                    window.location.reload(); // Refresh page to populate new media grid
+                }, 1200);
+            }
+        }
+
+        /* --- LIGHTBOX MODAL FUNCTIONS --- */
+        function openImageLightbox(element) {
+            const fullSrc = element.getAttribute('data-fullsrc');
+            const filename = element.getAttribute('data-filename');
+
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImg = document.getElementById('lightbox-img');
+            const lightboxPdf = document.getElementById('lightbox-pdf');
+
+            lightboxPdf.style.display = 'none';
+            lightboxPdf.src = '';
+            lightboxImg.src = fullSrc;
+            lightboxImg.style.display = 'block';
+
+            document.getElementById('lightbox-caption').textContent = filename;
+            lightbox.classList.add('active');
+        }
+
+        function openPdfLightbox(element) {
+            const pdfSrc = element.getAttribute('data-pdfsrc');
+            const filename = element.getAttribute('data-filename');
+
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImg = document.getElementById('lightbox-img');
+            const lightboxPdf = document.getElementById('lightbox-pdf');
+
+            lightboxImg.style.display = 'none';
+            lightboxImg.src = '';
+            lightboxPdf.src = pdfSrc;
+            lightboxPdf.style.display = 'block';
+
+            document.getElementById('lightbox-caption').textContent = filename;
+            lightbox.classList.add('active');
+        }
+
+        function closeLightbox(event) {
+            if (event.target.id === 'lightbox' || event.target.classList.contains('lightbox-close')) {
+                const lightbox = document.getElementById('lightbox');
+                lightbox.classList.remove('active');
+                document.getElementById('lightbox-img').src = '';
+                document.getElementById('lightbox-pdf').src = '';
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const lightbox = document.getElementById('lightbox');
+                if (lightbox.classList.contains('active')) {
+                    lightbox.classList.remove('active');
+                    document.getElementById('lightbox-img').src = '';
+                    document.getElementById('lightbox-pdf').src = '';
+                }
+            }
+        });
+    </script>
 </body>
 </html>

@@ -29,7 +29,7 @@ SECRET_KEY = 'django-insecure-i$270j*&wy@^&1))n!3uq5&g2b(q)@%6d=ile+jhc+!06wj)4j
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = os.getenv(ALLOWED_HOSTS, '')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',') if os.getenv('ALLOWED_HOSTS') else []
 
 
 # Application definition
@@ -128,3 +128,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'images')
 MEDIA_URL =  '/images/'
+
+# Allow up to 10 GB total request payload (matches Waitress)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10 GB in bytes
+
+# Allow up to 10 GB per single file
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10 GB in bytes
