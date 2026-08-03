@@ -3,149 +3,350 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Categorized Media Gallery</title>
+    <title>Home Server Media Hub</title>
+    <!-- Inter Font for modern typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; margin: 30px; background-color: #f9f9f9; color: #333; }
-        h1 { color: #2c3e50; }
-        
-        .section-header {
-            color: #34495e;
-            border-bottom: 2px solid #34495e;
-            padding-bottom: 8px;
-            margin-top: 40px;
-            margin-bottom: 20px;
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+            padding: 30px; 
+            background-color: #f4f6f9; 
+            color: #1e293b; 
         }
 
-        .upload-section { background: #ffffff; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px; margin-bottom: 30px; max-width: 480px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .upload-section p { margin-bottom: 12px; font-weight: bold; }
-        input[type="file"] { margin-bottom: 15px; display: block; width: 100%; }
-        .btn-upload { background-color: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold; width: 100%; }
-        .btn-upload:hover { background-color: #0056b3; }
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        h1 { 
+            font-size: 26px; 
+            font-weight: 700; 
+            color: #0f172a; 
+            letter-spacing: -0.5px;
+        }
+
+        /* --- SEARCH BAR --- */
+        .search-box {
+            position: relative;
+            min-width: 280px;
+            max-width: 400px;
+            flex: 1;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 16px 10px 38px;
+            font-size: 14px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            background-color: #ffffff;
+            color: #0f172a;
+            outline: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .search-box input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            fill: #94a3b8;
+            pointer-events: none;
+        }
+
+        .no-results-msg {
+            display: none;
+            padding: 30px;
+            text-align: center;
+            color: #64748b;
+            font-size: 15px;
+            font-weight: 500;
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px dashed #cbd5e1;
+            margin-top: 20px;
+        }
+
+        .section-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: #334155;
+            padding-bottom: 10px;
+            margin-top: 36px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        /* --- UPLOAD SECTION --- */
+        .upload-section { 
+            background: #ffffff; 
+            border: 1px solid #e2e8f0; 
+            padding: 24px; 
+            border-radius: 12px; 
+            margin-bottom: 28px; 
+            max-width: 500px; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); 
+        }
+
+        .upload-section p { 
+            margin-bottom: 12px; 
+            font-weight: 600; 
+            font-size: 14px;
+            color: #475569;
+        }
+
+        input[type="file"] { 
+            margin-bottom: 16px; 
+            display: block; 
+            width: 100%; 
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        .btn-upload { 
+            background-color: #2563eb; 
+            color: white; 
+            border: none; 
+            padding: 12px 20px; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 14px; 
+            font-weight: 600; 
+            width: 100%; 
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+        }
+
+        .btn-upload:hover { 
+            background-color: #1d4ed8; 
+            transform: translateY(-1px);
+        }
 
         /* --- UPLOADER PROGRESS DRAWER --- */
         .upload-progress-container {
             display: none;
             background: #ffffff;
-            border: 1px solid #007bff;
-            border-radius: 8px;
+            border: 1px solid #3b82f6;
+            border-radius: 12px;
             padding: 20px;
-            margin-bottom: 30px;
+            margin-bottom: 28px;
             max-width: 600px;
-            box-shadow: 0 4px 12px rgba(0,123,255,0.15);
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.1);
         }
 
-        .progress-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
+        .progress-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 10px; font-size: 14px; }
+        .overall-progress-bar-bg { width: 100%; height: 10px; background: #e2e8f0; border-radius: 5px; overflow: hidden; margin-bottom: 12px; }
+        .overall-progress-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #10b981, #059669); transition: width 0.2s ease; }
+        .progress-stats { display: flex; justify-content: space-between; font-size: 13px; color: #64748b; margin-bottom: 15px; }
 
-        .overall-progress-bar-bg {
-            width: 100%;
-            height: 14px;
-            background: #e9ecef;
-            border-radius: 7px;
-            overflow: hidden;
-            margin-bottom: 12px;
-        }
-
-        .overall-progress-bar-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #28a745, #20c997);
-            transition: width 0.2s ease;
-        }
-
-        .progress-stats {
-            display: flex;
-            justify-content: space-between;
-            font-size: 13px;
-            color: #666;
-            margin-bottom: 15px;
-        }
-
-        .file-queue-list {
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            padding: 8px;
-            background: #fafafa;
-        }
-
-        .queue-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 13px;
-            padding: 6px 0;
-            border-bottom: 1px solid #eee;
-        }
-
+        .file-queue-list { max-height: 180px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px; padding: 8px; background: #f8fafc; }
+        .queue-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 6px 4px; border-bottom: 1px solid #f1f5f9; }
         .queue-item:last-child { border-bottom: none; }
-        .queue-filename { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65%; }
+        .queue-filename { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65%; color: #334155; }
 
-        .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-        .badge-pending { background: #e2e3e5; color: #383d41; }
-        .badge-uploading { background: #cce5ff; color: #004085; }
-        .badge-done { background: #d4edda; color: #155724; }
-        .badge-failed { background: #f8d7da; color: #721c24; }
+        .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+        .badge-pending { background: #f1f5f9; color: #64748b; }
+        .badge-uploading { background: #dbeafe; color: #1e40af; }
+        .badge-done { background: #d1fae5; color: #065f46; }
+        .badge-failed { background: #fee2e2; color: #991b1b; }
 
-        /* GALLERY & CARD STYLES */
-        .gallery { display: flex; flex-wrap: wrap; gap: 20px; }
+        /* --- GRID SYSTEM --- */
+        .gallery { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); 
+            gap: 20px; 
+        }
+
+        /* --- MEDIA CARD --- */
         .card {
             position: relative;
             background: #ffffff;
-            border: 1px solid #ddd;
-            padding: 12px;
-            border-radius: 8px;
-            text-align: center;
-            width: 220px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
-            align-items: center;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .delete-form { position: absolute; top: 6px; right: 6px; z-index: 10; }
-        .delete-btn { background: rgba(220, 53, 69, 0.9); color: white; border: none; border-radius: 50%; width: 26px; height: 26px; font-size: 14px; font-weight: bold; line-height: 26px; cursor: pointer; padding: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-        .delete-btn:hover { background: #dc3545; transform: scale(1.1); }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.08);
+            border-color: #cbd5e1;
+        }
 
-        .card img, .card video { width: 100%; height: 180px; object-fit: cover; border-radius: 4px; display: block; margin-bottom: 10px; background-color: #000; }
-        .card img { cursor: pointer; transition: opacity 0.2s; }
-        .card img:hover { opacity: 0.9; }
+        .media-preview-wrapper {
+            position: relative;
+            width: 100%;
+            height: 160px;
+            background-color: #0f172a;
+            overflow: hidden;
+        }
 
-        .card .file-icon { width: 100%; height: 180px; display: flex; align-items: center; justify-content: center; background: #eef2f5; border-radius: 4px; font-weight: bold; font-size: 18px; color: #555; margin-bottom: 10px; text-transform: uppercase; }
-        .card .file-icon.pdf-clickable { cursor: pointer; transition: background-color 0.2s; }
-        .card .file-icon.pdf-clickable:hover { background: #e0e6ed; color: #007bff; }
+        .card img, .card video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            display: block; 
+            transition: transform 0.3s ease;
+        }
 
-        .card a.file-link { text-decoration: none; color: #007bff; font-size: 13px; word-break: break-all; display: block; margin-top: auto; }
-        .card a.file-link:hover { text-decoration: underline; }
-        .empty-text { color: #777; font-style: italic; }
+        .card img { cursor: pointer; }
+        .card:hover img { transform: scale(1.04); }
 
-        /* LIGHTBOX MODAL */
-        .lightbox-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.88); z-index: 1000; justify-content: center; align-items: center; flex-direction: column; }
+        .file-icon { 
+            width: 100%; 
+            height: 100%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            background: #f8fafc; 
+            font-weight: 700; 
+            font-size: 16px; 
+            color: #64748b; 
+            text-transform: uppercase; 
+        }
+
+        .file-icon.pdf-clickable { 
+            cursor: pointer; 
+            background: #f1f5f9; 
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .file-icon.pdf-clickable:hover { 
+            background: #e2e8f0; 
+            color: #2563eb; 
+        }
+
+        .card-body {
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex-grow: 1;
+            justify-content: space-between;
+        }
+
+        .file-title { 
+            font-size: 13px; 
+            font-weight: 600; 
+            color: #1e293b; 
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* --- ACTION BAR --- */
+        .action-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 10px;
+        }
+
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex: 1;
+        }
+
+        .btn-download-action {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .btn-download-action:hover {
+            background-color: #2563eb;
+            color: #ffffff;
+        }
+
+        .btn-delete-action {
+            background-color: #f1f5f9;
+            color: #ef4444;
+            flex: 0 0 36px;
+            padding: 8px;
+        }
+
+        .btn-delete-action:hover {
+            background-color: #fee2e2;
+            color: #dc2626;
+        }
+
+        .btn-action svg {
+            width: 15px;
+            height: 15px;
+            fill: currentColor;
+        }
+
+        .empty-text { color: #94a3b8; font-style: italic; font-size: 14px; }
+
+        /* --- LIGHTBOX MODAL --- */
+        .lightbox-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.92); z-index: 1000; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(4px); }
         .lightbox-modal.active { display: flex; }
-        .lightbox-content-img { max-width: 90%; max-height: 80vh; border-radius: 6px; box-shadow: 0 5px 25px rgba(0,0,0,0.5); object-fit: contain; }
-        .lightbox-content-pdf { width: 85%; height: 85vh; border: none; border-radius: 6px; background: #fff; box-shadow: 0 5px 25px rgba(0,0,0,0.5); }
-        .lightbox-caption { color: #ffffff; margin-top: 15px; font-size: 15px; text-align: center; }
-        .lightbox-close { position: absolute; top: 20px; right: 30px; color: #ffffff; font-size: 36px; font-weight: bold; cursor: pointer; z-index: 1001; }
+        .lightbox-content-img { max-width: 90%; max-height: 80vh; border-radius: 8px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); object-fit: contain; }
+        .lightbox-content-pdf { width: 85%; height: 85vh; border: none; border-radius: 8px; background: #fff; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+        
+        .lightbox-footer { display: flex; align-items: center; gap: 16px; margin-top: 16px; background: rgba(30, 41, 59, 0.8); padding: 10px 20px; border-radius: 30px; }
+        .lightbox-caption { color: #ffffff; font-size: 14px; font-weight: 500; }
+        .lightbox-download-link { color: #38bdf8; font-size: 13px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 6px; }
+        .lightbox-download-link:hover { text-decoration: underline; }
+        .lightbox-close { position: absolute; top: 24px; right: 32px; color: #94a3b8; font-size: 32px; font-weight: 600; cursor: pointer; transition: color 0.2s; }
+        .lightbox-close:hover { color: #ffffff; }
     </style>
 </head>
 <body>
 
-    <h1>Upload Any File</h1>
-    <div class="upload-section">
-        <p>Select file(s) to upload:</p>
-        <input type="file" id="file-input" multiple>
-        <button type="button" class="btn-upload" onclick="startBatchUpload()">Upload Batch</button>
+    <div class="header-container">
+        <h1>Home Server Gallery</h1>
+
+        <!-- SEARCH INPUT -->
+        <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+            <input type="text" id="search-input" placeholder="Search files..." onkeyup="filterFiles()">
+        </div>
     </div>
 
-    <!-- ASYNCHRONOUS PROGRESS DRAWER -->
+    <div class="upload-section">
+        <p>Upload Files</p>
+        <input type="file" id="file-input" multiple>
+        <button type="button" class="btn-upload" onclick="startBatchUpload()">Start Upload</button>
+    </div>
+
+    <!-- UPLOADER DRAWER -->
     <div id="upload-drawer" class="upload-progress-container">
         <div class="progress-header">
             <span id="progress-summary">Uploading 0/0 files...</span>
@@ -161,109 +362,196 @@
             <span id="upload-eta">ETA: --</span>
         </div>
 
-        <div id="queue-list" class="file-queue-list">
-            <!-- Populated via JavaScript -->
-        </div>
+        <div id="queue-list" class="file-queue-list"></div>
     </div>
 
-    <!-- Images Section -->
-    <h2 class="section-header">📷 Images</h2>
-    {% if grouped_media.images %}
-        <div class="gallery">
-            {% for item in grouped_media.images %}
-                <div class="card">
-                    <form action="{% url 'delete_file' %}" method="post" class="delete-form" onsubmit="return confirm('Delete {{ item.name }}?');">
-                        {% csrf_token %}
-                        <input type="hidden" name="file_rel_path" value="{{ item.rel_path }}">
-                        <button type="submit" class="delete-btn" title="Delete file">✕</button>
-                    </form>
+    <!-- NO SEARCH RESULTS CONTAINER -->
+    <div id="no-results" class="no-results-msg">
+        No matching files found.
+    </div>
 
-                    <img src="{{ item.thumb_url }}" 
-                         data-fullsrc="{{ item.url_path }}" 
-                         data-filename="{{ item.name }}"
-                         alt="{{ item.name }}" 
-                         loading="lazy"
-                         onclick="openImageLightbox(this)">
-                    
-                    <a href="{{ item.url_path }}" target="_blank" download class="file-link">{{ item.name }}</a>
-                </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <p class="empty-text">No images uploaded yet.</p>
-    {% endif %}
-
-    <!-- Videos Section -->
-    <h2 class="section-header">🎬 Videos</h2>
-    {% if grouped_media.videos %}
-        <div class="gallery">
-            {% for item in grouped_media.videos %}
-                <div class="card">
-                    <form action="{% url 'delete_file' %}" method="post" class="delete-form" onsubmit="return confirm('Delete {{ item.name }}?');">
-                        {% csrf_token %}
-                        <input type="hidden" name="file_rel_path" value="{{ item.rel_path }}">
-                        <button type="submit" class="delete-btn" title="Delete file">✕</button>
-                    </form>
-
-                    <video controls preload="none">
-                        <source src="{{ item.url_path }}">
-                        Your browser does not support video playback.
-                    </video>
-                    <a href="{{ item.url_path }}" target="_blank" download class="file-link">{{ item.name }}</a>
-                </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <p class="empty-text">No videos uploaded yet.</p>
-    {% endif %}
-
-    <!-- Documents & Files Section -->
-    <h2 class="section-header">📁 Documents & Files</h2>
-    {% if grouped_media.documents %}
-        <div class="gallery">
-            {% for item in grouped_media.documents %}
-                <div class="card">
-                    <form action="{% url 'delete_file' %}" method="post" class="delete-form" onsubmit="return confirm('Delete {{ item.name }}?');">
-                        {% csrf_token %}
-                        <input type="hidden" name="file_rel_path" value="{{ item.rel_path }}">
-                        <button type="submit" class="delete-btn" title="Delete file">✕</button>
-                    </form>
-
-                    {% if item.ext == '.pdf' %}
-                        <div class="file-icon pdf-clickable" 
-                             data-pdfsrc="{{ item.url_path }}" 
-                             data-filename="{{ item.name }}"
-                             onclick="openPdfLightbox(this)"
-                             title="Click to preview PDF">
-                            📄 {{ item.ext }}
+    <!-- IMAGES SECTION -->
+    <div class="media-section" id="section-images">
+        <h2 class="section-header">📷 Images</h2>
+        {% if grouped_media.images %}
+            <div class="gallery">
+                {% for item in grouped_media.images %}
+                    <div class="card" data-filename="{{ item.name|lower }}">
+                        <div class="media-preview-wrapper">
+                            <img src="{{ item.thumb_url }}" 
+                                 data-fullsrc="{{ item.url_path }}" 
+                                 data-filename="{{ item.name }}"
+                                 alt="{{ item.name }}" 
+                                 loading="lazy"
+                                 onclick="openImageLightbox(this)">
                         </div>
-                        <a href="javascript:void(0)" 
-                           data-pdfsrc="{{ item.url_path }}" 
-                           data-filename="{{ item.name }}"
-                           onclick="openPdfLightbox(this)" 
-                           class="file-link">{{ item.name }}</a>
-                    {% else %}
-                        <div class="file-icon">{{ item.ext }}</div>
-                        <a href="{{ item.url_path }}" target="_blank" download class="file-link">{{ item.name }}</a>
-                    {% endif %}
-                </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <p class="empty-text">No documents uploaded yet.</p>
-    {% endif %}
 
-    <!-- LIGHTBOX MODAL OVERLAY -->
+                        <div class="card-body">
+                            <div class="file-title" title="{{ item.name }}">{{ item.name }}</div>
+
+                            <div class="action-bar">
+                                <a href="{{ item.url_path }}" download="{{ item.name }}" class="btn-action btn-download-action" title="Download File">
+                                    <svg viewBox="0 0 24 24"><path d="M12 16l-5-5h3V4h4v7h3l-5 5zm9 4H3v-2h18v2z"/></svg>
+                                    Download
+                                </a>
+
+                                <form action="{% url 'delete_file' %}" method="post" onsubmit="return confirm('Delete {{ item.name }}?');" style="margin:0;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="file_rel_path" value="{{ item.rel_path }}">
+                                    <button type="submit" class="btn-action btn-delete-action" title="Delete File">
+                                        <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="empty-text">No images uploaded yet.</p>
+        {% endif %}
+    </div>
+
+    <!-- VIDEOS SECTION -->
+    <div class="media-section" id="section-videos">
+        <h2 class="section-header">🎬 Videos</h2>
+        {% if grouped_media.videos %}
+            <div class="gallery">
+                {% for item in grouped_media.videos %}
+                    <div class="card" data-filename="{{ item.name|lower }}">
+                        <div class="media-preview-wrapper">
+                            <video controls preload="none">
+                                <source src="{{ item.url_path }}">
+                                Your browser does not support video playback.
+                            </video>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="file-title" title="{{ item.name }}">{{ item.name }}</div>
+
+                            <div class="action-bar">
+                                <a href="{{ item.url_path }}" download="{{ item.name }}" class="btn-action btn-download-action" title="Download File">
+                                    <svg viewBox="0 0 24 24"><path d="M12 16l-5-5h3V4h4v7h3l-5 5zm9 4H3v-2h18v2z"/></svg>
+                                    Download
+                                </a>
+
+                                <form action="{% url 'delete_file' %}" method="post" onsubmit="return confirm('Delete {{ item.name }}?');" style="margin:0;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="file_rel_path" value="{{ item.rel_path }}">
+                                    <button type="submit" class="btn-action btn-delete-action" title="Delete File">
+                                        <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="empty-text">No videos uploaded yet.</p>
+        {% endif %}
+    </div>
+
+    <!-- DOCUMENTS SECTION -->
+    <div class="media-section" id="section-documents">
+        <h2 class="section-header">📁 Documents & Files</h2>
+        {% if grouped_media.documents %}
+            <div class="gallery">
+                {% for item in grouped_media.documents %}
+                    <div class="card" data-filename="{{ item.name|lower }}">
+                        <div class="media-preview-wrapper">
+                            {% if item.ext == '.pdf' %}
+                                <div class="file-icon pdf-clickable" 
+                                     data-pdfsrc="{{ item.url_path }}" 
+                                     data-filename="{{ item.name }}"
+                                     onclick="openPdfLightbox(this)"
+                                     title="Click to preview PDF">
+                                    📄 {{ item.ext }}
+                                </div>
+                            {% else %}
+                                <div class="file-icon">{{ item.ext }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="card-body">
+                            <div class="file-title" title="{{ item.name }}">{{ item.name }}</div>
+
+                            <div class="action-bar">
+                                <a href="{{ item.url_path }}" download="{{ item.name }}" class="btn-action btn-download-action" title="Download File">
+                                    <svg viewBox="0 0 24 24"><path d="M12 16l-5-5h3V4h4v7h3l-5 5zm9 4H3v-2h18v2z"/></svg>
+                                    Download
+                                </a>
+
+                                <form action="{% url 'delete_file' %}" method="post" onsubmit="return confirm('Delete {{ item.name }}?');" style="margin:0;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="file_rel_path" value="{{ item.rel_path }}">
+                                    <button type="submit" class="btn-action btn-delete-action" title="Delete File">
+                                        <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="empty-text">No documents uploaded yet.</p>
+        {% endif %}
+    </div>
+
+    <!-- LIGHTBOX OVERLAY -->
     <div id="lightbox" class="lightbox-modal" onclick="closeLightbox(event)">
         <span class="lightbox-close" onclick="closeLightbox(event)">&times;</span>
+        
         <img id="lightbox-img" class="lightbox-content-img" src="" alt="Full Preview" style="display: none;">
         <embed id="lightbox-pdf" class="lightbox-content-pdf" type="application/pdf" src="" style="display: none;">
-        <div id="lightbox-caption" class="lightbox-caption"></div>
+        
+        <div class="lightbox-footer">
+            <div id="lightbox-caption" class="lightbox-caption"></div>
+            <a id="lightbox-download" href="" download class="lightbox-download-link">
+                <svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor;"><path d="M12 16l-5-5h3V4h4v7h3l-5 5zm9 4H3v-2h18v2z"/></svg>
+                Download Original
+            </a>
+        </div>
     </div>
 
     <script>
         const CSRF_TOKEN = '{{ csrf_token }}';
-        const MAX_CONCURRENT_UPLOADS = 3; // Uploads 3 files simultaneously in parallel
+        const MAX_CONCURRENT_UPLOADS = 3;
+
+        /* REAL-TIME CLIENT-SIDE SEARCH FUNCTION */
+        function filterFiles() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const cards = document.querySelectorAll('.card');
+            const sections = document.querySelectorAll('.media-section');
+            let totalVisible = 0;
+
+            cards.forEach(card => {
+                const filename = card.getAttribute('data-filename') || '';
+                if (filename.includes(query)) {
+                    card.style.display = 'flex';
+                    totalVisible++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            sections.forEach(section => {
+                const visibleCards = section.querySelectorAll('.card[style*="display: flex"], .card:not([style*="display: none"])');
+                if (query.length > 0 && visibleCards.length === 0) {
+                    section.style.display = 'none';
+                } else {
+                    section.style.display = 'block';
+                }
+            });
+
+            const noResultsMsg = document.getElementById('no-results');
+            if (totalVisible === 0 && cards.length > 0) {
+                noResultsMsg.style.display = 'block';
+            } else {
+                noResultsMsg.style.display = 'none';
+            }
+        }
 
         let uploadQueue = [];
         let totalBytes = 0;
@@ -280,7 +568,6 @@
                 return;
             }
 
-            // Reset state
             uploadQueue = files.map((file, idx) => ({
                 id: idx,
                 file: file,
@@ -293,7 +580,6 @@
             completedCount = 0;
             startTime = Date.now();
 
-            // Render Queue UI
             const queueList = document.getElementById('queue-list');
             queueList.innerHTML = '';
             uploadQueue.forEach(item => {
@@ -301,7 +587,7 @@
                 div.className = 'queue-item';
                 div.id = `queue-item-${item.id}`;
                 div.innerHTML = `
-                    <span class="queue-filename">${item.file.name} (${(item.file.size / (1024*1024)).toFixed(1)} MB)</span>
+                    <span class="queue-filename">${item.file.name}</span>
                     <span class="badge badge-pending" id="badge-${item.id}">Pending</span>
                 `;
                 queueList.appendChild(div);
@@ -318,7 +604,7 @@
             if (activeUploads < MAX_CONCURRENT_UPLOADS && pendingItems.length > 0) {
                 const itemToUpload = pendingItems[0];
                 uploadSingleFileAJAX(itemToUpload);
-                processNextInQueue(); // Trigger up to MAX_CONCURRENT_UPLOADS
+                processNextInQueue();
             }
         }
 
@@ -380,7 +666,7 @@
             document.getElementById('progress-percent').textContent = `${percent}%`;
             document.getElementById('progress-summary').textContent = `Uploading ${completedCount}/${uploadQueue.length} files...`;
 
-            const elapsedTime = (Date.now() - startTime) / 1000; // seconds
+            const elapsedTime = (Date.now() - startTime) / 1000;
             if (elapsedTime > 0) {
                 const speedMBps = ((bytesUploaded / (1024 * 1024)) / elapsedTime).toFixed(1);
                 document.getElementById('upload-speed').textContent = `Speed: ${speedMBps} MB/s`;
@@ -400,12 +686,12 @@
                 document.getElementById('progress-bar-fill').style.width = '100%';
                 document.getElementById('progress-percent').textContent = '100%';
                 setTimeout(() => {
-                    window.location.reload(); // Refresh page to populate new media grid
+                    window.location.reload();
                 }, 1200);
             }
         }
 
-        /* --- LIGHTBOX MODAL FUNCTIONS --- */
+        /* LIGHTBOX FUNCTIONS */
         function openImageLightbox(element) {
             const fullSrc = element.getAttribute('data-fullsrc');
             const filename = element.getAttribute('data-filename');
@@ -413,6 +699,7 @@
             const lightbox = document.getElementById('lightbox');
             const lightboxImg = document.getElementById('lightbox-img');
             const lightboxPdf = document.getElementById('lightbox-pdf');
+            const lightboxDownload = document.getElementById('lightbox-download');
 
             lightboxPdf.style.display = 'none';
             lightboxPdf.src = '';
@@ -420,6 +707,9 @@
             lightboxImg.style.display = 'block';
 
             document.getElementById('lightbox-caption').textContent = filename;
+            lightboxDownload.href = fullSrc;
+            lightboxDownload.setAttribute('download', filename);
+
             lightbox.classList.add('active');
         }
 
@@ -430,6 +720,7 @@
             const lightbox = document.getElementById('lightbox');
             const lightboxImg = document.getElementById('lightbox-img');
             const lightboxPdf = document.getElementById('lightbox-pdf');
+            const lightboxDownload = document.getElementById('lightbox-download');
 
             lightboxImg.style.display = 'none';
             lightboxImg.src = '';
@@ -437,6 +728,9 @@
             lightboxPdf.style.display = 'block';
 
             document.getElementById('lightbox-caption').textContent = filename;
+            lightboxDownload.href = pdfSrc;
+            lightboxDownload.setAttribute('download', filename);
+
             lightbox.classList.add('active');
         }
 
