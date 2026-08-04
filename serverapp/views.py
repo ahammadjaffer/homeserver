@@ -7,6 +7,8 @@ from django.conf import settings
 from django.views.decorators.http import require_POST
 from .forms import FileUploadForm
 from django.views.decorators.clickjacking import xframe_options_exempt
+from .models import MediaItem
+from .tasks import process_file_background
 
 # Register HEIC support for Pillow
 register_heif_opener()
@@ -172,6 +174,20 @@ def upload_single_file(request):
 
         # Generate thumbnail if image
         ext = os.path.splitext(uploaded_file.name)[1].lower()
+
+        # 1. If MKV or HEIC, enqueue conversion task in background
+        if ext in ['.mkv', '.heic', '.heif']:
+            process_file_background(save_path, category, media_root, thumb_root)
+            
+            # Return immediate response to the client
+            return JsonResponse({
+                'success': True,
+                'filename': uploaded_file.name,
+                'category': category,
+                'status': 'processing'  # Signal UI that background conversion is running
+            })
+
+        # 2. Standard image handling (JPG, PNG, WEBP, etc.)
         if ext in IMAGE_EXTS:
             thumb_path = os.path.join(thumb_root, category, f"{os.path.splitext(uploaded_file.name)[0]}.jpg")
             create_thumbnail(save_path, thumb_path)
@@ -179,7 +195,9 @@ def upload_single_file(request):
         return JsonResponse({
             'success': True,
             'filename': uploaded_file.name,
-            'category': category
+            'category': category,
+            'status': 'ready'
         })
+
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'huey.contrib.djhuey',
     'serverapp',
 ]
 
@@ -134,3 +135,15 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10 GB in bytes
 
 # Allow up to 10 GB per single file
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10 GB in bytes
+
+# Huey Configuration (Uses SQLite DB for zero-config queue management)
+HUEY = {
+    'huey_class': 'huey.SqliteHuey',
+    'name': 'homeserver_tasks',
+    'filename': BASE_DIR / 'huey_queue.sqlite3',
+    'immediate': False,
+    'consumer': {
+        'workers': 2,       # Run up to 2 tasks in parallel
+        'worker_type': 'thread',
+    },
+}
