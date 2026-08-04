@@ -2,6 +2,7 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
+import hupper
 
 BASE_DIR = Path(__file__).resolve().parent
 env_path = BASE_DIR / '.env'
@@ -13,8 +14,9 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'serverproject.settings')
 from waitress import serve
 from serverproject.wsgi import application
 
-if __name__ == '__main__':
-    print("Starting Waitress internally on http://127.0.0.1:8000 ...")
+
+def start_server():
+    print("Starting NitroStream on Waitress with Auto-Reload on http://127.0.0.1:8000 ...")
     serve(
         application,
         host='127.0.0.1',  # Bind locally; Nginx handles network traffic
@@ -24,3 +26,8 @@ if __name__ == '__main__':
         send_bytes=18000,
         max_request_body_size=10737418240  # 10 GB upload limit
     )
+
+
+if __name__ == '__main__':
+    # Start file monitor to auto-reload Waitress whenever .py files change
+    reloader = hupper.start_reloader('run.start_server')
