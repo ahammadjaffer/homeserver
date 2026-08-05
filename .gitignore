@@ -221,3 +221,6 @@ __marimo__/
 # images directory
 .images
 images/
+
+setup.txt
+homeserver.txt
