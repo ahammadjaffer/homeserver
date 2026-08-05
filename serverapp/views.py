@@ -121,7 +121,7 @@ def list_images(request):
             else:
                 grouped_media['documents'].append(item_data)
 
-    return render(request, 'serverapp/image_list.html', {
+    return render(request, 'serverapp/index.html', {
         'form': form,
         'grouped_media': grouped_media,
     })
