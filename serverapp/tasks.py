@@ -49,37 +49,37 @@ def process_file_background(save_path_str: str, category: str, media_root: str, 
 
     # --- B. Handle MKV Videos ---
     elif ext == '.mkv':
-        pass
-        # mp4_path = file_path.with_suffix('.mp4')
-        # encoder = get_ffmpeg_video_encoder()
-        # preset = 'fast' if encoder == 'h264_nvenc' else 'ultrafast'
+        if os.getenv('ENABLE_MP4_CONVERSION', False):
+            mp4_path = file_path.with_suffix('.mp4')
+            encoder = get_ffmpeg_video_encoder()
+            preset = 'fast' if encoder == 'h264_nvenc' else 'ultrafast'
 
-        # cmd = [
-        #     'ffmpeg', '-y',
-        #     '-i', str(file_path),
-        #     '-c:v', encoder,
-        #     '-preset', preset,
-        #     '-c:a', 'aac',
-        #     '-movflags', '+faststart',
-        #     str(mp4_path)
-        # ]
-        
-        # subprocess.run(cmd, check=True)
+            cmd = [
+                'ffmpeg', '-y',
+                '-i', str(file_path),
+                '-c:v', encoder,
+                '-preset', preset,
+                '-c:a', 'aac',
+                '-movflags', '+faststart',
+                str(mp4_path)
+            ]
+            
+            subprocess.run(cmd, check=True)
 
-        # # Delete raw .mkv file
-        # if file_path.exists():
-        #     os.remove(file_path)
+            # Delete raw .mkv file
+            if file_path.exists():
+                os.remove(file_path)
 
-        # # Optional: Generate video thumbnail from MP4 frame using FFmpeg
-        # thumb_path = os.path.join(thumb_root, category, f"{mp4_path.stem}.jpg")
-        # os.makedirs(os.path.dirname(thumb_path), exist_ok=True)
-        
-        # ffmpeg_thumb_cmd = [
-        #     'ffmpeg', '-y',
-        #     '-ss', '00:00:01',
-        #     '-i', str(mp4_path),
-        #     '-vframes', '1',
-        #     '-q:v', '2',
-        #     thumb_path
-        # ]
-        # subprocess.run(ffmpeg_thumb_cmd, stderr=subprocess.DEVNULL)
+            # Optional: Generate video thumbnail from MP4 frame using FFmpeg
+            thumb_path = os.path.join(thumb_root, category, f"{mp4_path.stem}.jpg")
+            os.makedirs(os.path.dirname(thumb_path), exist_ok=True)
+            
+            ffmpeg_thumb_cmd = [
+                'ffmpeg', '-y',
+                '-ss', '00:00:01',
+                '-i', str(mp4_path),
+                '-vframes', '1',
+                '-q:v', '2',
+                thumb_path
+            ]
+            subprocess.run(ffmpeg_thumb_cmd, stderr=subprocess.DEVNULL)

@@ -1,0 +1,12 @@
+# NitroStream — Production Dependencies
+
+django
+psycopg2-binary
+redis
+django-redis
+huey
+pillow
+pillow-heif
+waitress
+hupper
+python-dotenv
