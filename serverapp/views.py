@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
 from .forms import FileUploadForm
 from django.views.decorators.clickjacking import xframe_options_exempt
 from .models import MediaItem
@@ -41,6 +42,7 @@ def create_thumbnail(image_path, thumb_path, size=(300, 300)):
         print(f"Error generating thumbnail for {image_path}: {e}")
         return False
 
+@login_required
 def list_images(request):
     media_root = settings.MEDIA_ROOT
     thumb_root = os.path.join(media_root, '.thumbnails')
@@ -126,6 +128,7 @@ def list_images(request):
         'grouped_media': grouped_media,
     })
 
+@login_required
 @require_POST
 def delete_file(request):
     """Deletes a file and its associated thumbnail from disk."""
@@ -150,6 +153,7 @@ def delete_file(request):
 
     return redirect('list_images')
 
+@login_required
 @require_POST
 def upload_single_file(request):
     """Processes a single file upload asynchronously via AJAX."""

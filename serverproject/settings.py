@@ -173,3 +173,8 @@ HUEY = {
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Authentication Redirect Settings
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'list_images'
+LOGOUT_REDIRECT_URL = 'login'
