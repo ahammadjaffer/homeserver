@@ -43,7 +43,10 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'huey.contrib.djhuey',
     'serverapp',
+    'media_manager',
 ]
+
+AUTH_USER_MODEL = 'media_manager.User'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
