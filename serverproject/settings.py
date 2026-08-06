@@ -80,8 +80,25 @@ WSGI_APPLICATION = 'serverproject.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME', 'nitrostream'),
+        'USER': os.getenv('DB_USER', 'nitrostream'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+        'PORT': os.getenv('DB_PORT', '5432'),
+    }
+}
+
+# Cache
+# https://docs.djangoproject.com/en/5.2/topics/cache/
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
     }
 }
 
@@ -130,8 +147,8 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-MEDIA_ROOT = os.path.join(BASE_DIR, 'images')
-MEDIA_URL =  '/images/'
+MEDIA_ROOT = BASE_DIR / 'media_storage'
+MEDIA_URL = '/media/'
 
 # Allow up to 10 GB total request payload (matches Waitress)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10 GB in bytes
@@ -139,14 +156,14 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10 GB in bytes
 # Allow up to 10 GB per single file
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10 GB in bytes
 
-# Huey Configuration (Uses SQLite DB for zero-config queue management)
+# Huey Configuration (Redis-backed task queue for production)
 HUEY = {
-    'huey_class': 'huey.SqliteHuey',
-    'name': 'homeserver_tasks',
-    'filename': BASE_DIR / 'huey_queue.sqlite3',
+    'huey_class': 'huey.RedisHuey',
+    'name': 'nitrostream_tasks',
+    'url': 'redis://127.0.0.1:6379/2',
     'immediate': False,
     'consumer': {
-        'workers': 2,       # Run up to 2 tasks in parallel
+        'workers': 2,
         'worker_type': 'thread',
     },
 }
