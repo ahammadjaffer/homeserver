@@ -97,11 +97,8 @@ DATABASES = {
 
 CACHES = {
     'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1',
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'nitrostream-local-cache',
     }
 }
 
@@ -159,11 +156,11 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10 GB in bytes
 # Allow up to 10 GB per single file
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10737418240  # 10 GB in bytes
 
-# Huey Configuration (Redis-backed task queue for production)
+# Huey Configuration (Uses SQLite DB for zero-config queue management on Windows)
 HUEY = {
-    'huey_class': 'huey.RedisHuey',
+    'huey_class': 'huey.SqliteHuey',
     'name': 'nitrostream_tasks',
-    'url': 'redis://127.0.0.1:6379/2',
+    'filename': BASE_DIR / 'huey_queue.sqlite3',
     'immediate': False,
     'consumer': {
         'workers': 2,
