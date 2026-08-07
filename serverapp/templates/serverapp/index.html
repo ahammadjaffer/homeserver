@@ -43,10 +43,25 @@
             <input type="text" id="search-input" placeholder="Search your media library..." onkeyup="filterFiles()">
         </div>
 
-        <button class="btn-toggle-upload" onclick="toggleUploadDrawer()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-            Upload Media
-        </button>
+        <div class="user-menu-container">
+            <button class="btn-toggle-upload" onclick="toggleUploadDrawer()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                Upload Media
+            </button>
+
+            {% if user.is_authenticated %}
+            <div class="user-badge">
+                <div class="user-avatar">{{ user.username|slice:":1" }}</div>
+                <span>{{ user.username }}</span>
+            </div>
+            <a href="{% url 'logout' %}" class="btn-logout" title="Log Out">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                Logout
+            </a>
+            {% else %}
+            <a href="{% url 'login' %}" class="btn-logout" style="background: rgba(229, 9, 20, 0.15); border-color: rgba(229, 9, 20, 0.3); color: #ffffff;">Log In</a>
+            {% endif %}
+        </div>
     </nav>
 
     <!-- HERO BANNER -->
