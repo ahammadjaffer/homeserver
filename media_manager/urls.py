@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/folders/<int:folder_id>/delete/', views.delete_folder, name='api_delete_folder'),
     path('api/folders/tree/', views.get_folder_tree, name='api_folder_tree'),
 
-    # File Management API Routes
+    # File Management & Streaming API Routes
     path('api/files/upload/', views.upload_media_file, name='api_upload_file'),
+    path('stream/<int:file_id>/', views.stream_media, name='stream_media'),
 ]

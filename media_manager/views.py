@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse, Http404
 from django.views.decorators.http import require_http_methods
 from django.db.models import Count
 from django.core.cache import cache
@@ -220,7 +220,7 @@ def get_folder_tree(request):
     })
 
 
-# --- FILE UPLOAD API ---
+# --- FILE UPLOAD & STREAMING API ---
 
 @login_required
 @require_http_methods(["POST"])
@@ -269,3 +269,28 @@ def upload_media_file(request):
             'created_at': media_file.created_at.isoformat()
         }
     }, status=201)
+
+
+@login_required
+@require_http_methods(["GET", "HEAD"])
+def stream_media(request, file_id):
+    """
+    Secure media streaming endpoint using Nginx X-Accel-Redirect.
+    Authenticates user ownership, then offloads media delivery & byte-range seeking to Nginx.
+    """
+    try:
+        media_file = MediaFile.objects.get(id=file_id, owner=request.user)
+    except MediaFile.DoesNotExist:
+        raise Http404("Media file not found or access denied.")
+
+    if not media_file.file:
+        raise Http404("File content missing.")
+
+    # Format relative path for Nginx internal location mapping
+    relative_path = str(media_file.file.name).replace('\\', '/').lstrip('/')
+    x_accel_path = f"/protected_media/{relative_path}"
+
+    response = HttpResponse(content_type=media_file.mime_type)
+    response['X-Accel-Redirect'] = x_accel_path
+    response['Content-Disposition'] = f'inline; filename="{media_file.filename}"'
+    return response

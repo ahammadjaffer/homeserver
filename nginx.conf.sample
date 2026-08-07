@@ -1,0 +1,46 @@
+# NitroStream — Nginx Production Configuration Sample
+# Offloads high-bandwidth video streaming, range requests, and static file delivery from Waitress WSGI
+
+server {
+    listen 80;
+    server_name nitrostream.local;
+
+    # Allow up to 10 GB file uploads (matches Waitress DATA_UPLOAD_MAX_MEMORY_SIZE)
+    client_max_body_size 10G;
+
+    # Serve static files (CSS, JS, Images) directly with Nginx
+    location /static/ {
+        alias /absolute/path/to/homeserver/serverapp/static/;
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }
+
+    # INTERNAL PROTECTED MEDIA LOCATION (X-Accel-Redirect)
+    # Access restricted: direct client requests return 404.
+    # Triggered automatically when Django returns an 'X-Accel-Redirect' header.
+    # Offloads file streaming, byte-range video seeking, and buffer management to Nginx sendfile.
+    location /protected_media/ {
+        internal;
+        alias /absolute/path/to/homeserver/media_storage/;
+        
+        # High-performance streaming optimizations
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        aio threads;
+    }
+
+    # Proxy standard application requests to Waitress WSGI server running on port 8000
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Upload & streaming timeouts
+        proxy_read_timeout 600s;
+        proxy_connect_timeout 600s;
+        proxy_send_timeout 600s;
+    }
+}
