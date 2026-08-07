@@ -1,4 +1,5 @@
 import json
+import mimetypes
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib import messages
@@ -9,8 +10,9 @@ from django.db.models import Count
 from django.core.cache import cache
 
 from .forms import SignUpForm, LoginForm
-from .models import Folder
+from .models import Folder, MediaFile
 from .signals import get_folder_cache_key, invalidate_user_folder_cache
+from .tasks import generate_image_thumbnail
 
 
 # Helper to parse JSON or POST data from request
@@ -216,3 +218,54 @@ def get_folder_tree(request):
         'tree': root_folders,
         'cached': False
     })
+
+
+# --- FILE UPLOAD API ---
+
+@login_required
+@require_http_methods(["POST"])
+def upload_media_file(request):
+    """
+    AJAX endpoint to handle user file uploads.
+    Creates a MediaFile record ensuring owner=request.user and triggers thumbnail generation in background.
+    """
+    if 'file' not in request.FILES:
+        return JsonResponse({'error': 'No file provided.'}, status=400)
+
+    uploaded_file = request.FILES['file']
+    folder_id = request.POST.get('folder_id')
+
+    folder = None
+    if folder_id:
+        try:
+            folder = Folder.objects.get(id=folder_id, owner=request.user)
+        except Folder.DoesNotExist:
+            return JsonResponse({'error': 'Target folder not found.'}, status=404)
+
+    mime_type, _ = mimetypes.guess_type(uploaded_file.name)
+    if not mime_type:
+        mime_type = uploaded_file.content_type or 'application/octet-stream'
+
+    media_file = MediaFile.objects.create(
+        owner=request.user,
+        folder=folder,
+        file=uploaded_file,
+        filename=uploaded_file.name,
+        file_size=uploaded_file.size,
+        mime_type=mime_type
+    )
+
+    # Immediately trigger Huey background thumbnail generation
+    generate_image_thumbnail.delay(media_file.id)
+
+    return JsonResponse({
+        'success': True,
+        'file': {
+            'id': media_file.id,
+            'filename': media_file.filename,
+            'file_size': media_file.file_size,
+            'mime_type': media_file.mime_type,
+            'folder_id': media_file.folder_id,
+            'created_at': media_file.created_at.isoformat()
+        }
+    }, status=201)

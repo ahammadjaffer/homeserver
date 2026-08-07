@@ -12,4 +12,7 @@ urlpatterns = [
     path('api/folders/<int:folder_id>/rename/', views.rename_folder, name='api_rename_folder'),
     path('api/folders/<int:folder_id>/delete/', views.delete_folder, name='api_delete_folder'),
     path('api/folders/tree/', views.get_folder_tree, name='api_folder_tree'),
+
+    # File Management API Routes
+    path('api/files/upload/', views.upload_media_file, name='api_upload_file'),
 ]

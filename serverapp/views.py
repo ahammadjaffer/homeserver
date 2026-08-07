@@ -6,10 +6,13 @@ from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
+import mimetypes
 from .forms import FileUploadForm
 from django.views.decorators.clickjacking import xframe_options_exempt
 from .models import MediaItem
 from .tasks import process_file_background
+from media_manager.models import MediaFile
+from media_manager.tasks import generate_image_thumbnail
 
 # Register HEIC support for Pillow
 register_heif_opener()
@@ -176,7 +179,23 @@ def upload_single_file(request):
             for chunk in uploaded_file.chunks():
                 destination.write(chunk)
 
-        # Generate thumbnail if image
+        # Create MediaFile DB record for multi-user isolation
+        mime_type, _ = mimetypes.guess_type(uploaded_file.name)
+        if not mime_type:
+            mime_type = uploaded_file.content_type or 'application/octet-stream'
+
+        media_file = MediaFile.objects.create(
+            owner=request.user,
+            file=save_path,
+            filename=uploaded_file.name,
+            file_size=uploaded_file.size,
+            mime_type=mime_type
+        )
+
+        # Trigger background thumbnail generation using Huey
+        generate_image_thumbnail.delay(media_file.id)
+
+        # Generate thumbnail if image for static serverapp rendering
         ext = os.path.splitext(uploaded_file.name)[1].lower()
 
         # 1. If MKV or HEIC, enqueue conversion task in background
@@ -188,6 +207,7 @@ def upload_single_file(request):
                 'success': True,
                 'filename': uploaded_file.name,
                 'category': category,
+                'file_id': media_file.id,
                 'status': 'processing'  # Signal UI that background conversion is running
             })
 
@@ -200,6 +220,7 @@ def upload_single_file(request):
             'success': True,
             'filename': uploaded_file.name,
             'category': category,
+            'file_id': media_file.id,
             'status': 'ready'
         })
 
