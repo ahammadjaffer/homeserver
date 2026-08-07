@@ -126,9 +126,19 @@ def list_images(request):
             else:
                 grouped_media['documents'].append(item_data)
 
+    # Calculate user storage usage
+    used_bytes = 0
+    quota_mb = 5000
+    if request.user.is_authenticated:
+        from django.db.models import Sum
+        used_bytes = MediaFile.objects.filter(owner=request.user).aggregate(total=Sum('file_size'))['total'] or 0
+        quota_mb = getattr(request.user, 'storage_quota_mb', 5000)
+
     return render(request, 'serverapp/index.html', {
         'form': form,
         'grouped_media': grouped_media,
+        'used_bytes': used_bytes,
+        'storage_quota_mb': quota_mb,
     })
 
 @login_required
