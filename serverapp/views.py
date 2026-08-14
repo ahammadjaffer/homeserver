@@ -60,7 +60,7 @@ def list_images(request):
         if form.is_valid():
             # Cleaned data now contains the list of validated files
             files = form.cleaned_data['file']
-            
+
             for uploaded_file in files:
                 category = get_category(uploaded_file.name)
                 target_dir = os.path.join(media_root, category)
@@ -70,6 +70,18 @@ def list_images(request):
                 with open(save_path, 'wb+') as destination:
                     for chunk in uploaded_file.chunks():
                         destination.write(chunk)
+
+                # Create MediaFile DB record for quota tracking
+                mime_type, _ = mimetypes.guess_type(uploaded_file.name)
+                if not mime_type:
+                    mime_type = uploaded_file.content_type or 'application/octet-stream'
+                MediaFile.objects.create(
+                    owner=request.user,
+                    file=save_path,
+                    filename=uploaded_file.name,
+                    file_size=uploaded_file.size,
+                    mime_type=mime_type
+                )
 
                 # Generate thumbnail if image
                 ext = os.path.splitext(uploaded_file.name)[1].lower()
@@ -89,14 +101,16 @@ def list_images(request):
         'documents': []
     }
 
-    for root, _, files in os.walk(media_root):
-        # Skip thumbnail directory during scan
-        if '.thumbnails' in root:
-            continue
+    # Directories managed by media_manager app — skip to avoid double-listing
+    SKIP_DIRS = {'.thumbnails', 'thumbnails', 'uploads'}
+
+    for root, dirs, files in os.walk(media_root):
+        # Prune skip dirs in-place so os.walk won't descend into them
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
 
         for file in files:
             rel_dir = os.path.relpath(root, media_root)
-            # Determine relative URL path (e.g. "images/photo.jpg")
+            # Normalise to forward slashes for URLs
             rel_path = file if rel_dir == '.' else os.path.join(rel_dir, file).replace('\\', '/')
             full_path = os.path.join(root, file)
             ext = os.path.splitext(file)[1].lower()
@@ -109,10 +123,11 @@ def list_images(request):
             }
 
             if ext in IMAGE_EXTS:
-                # Check/Create thumbnail
                 base_name = os.path.splitext(file)[0]
-                thumb_relative = os.path.join('.thumbnails', rel_dir, f"{base_name}.jpg").replace('\\', '/')
-                thumb_full = os.path.join(thumb_root, rel_dir, f"{base_name}.jpg")
+                # Serverapp stores thumbs under .thumbnails/<rel_dir>/<base>.jpg
+                thumb_rel_dir = rel_dir if rel_dir != '.' else ''
+                thumb_full = os.path.join(thumb_root, thumb_rel_dir, f"{base_name}.jpg")
+                thumb_relative = os.path.join('.thumbnails', thumb_rel_dir, f"{base_name}.jpg").replace('\\', '/').lstrip('/')
 
                 if not os.path.exists(thumb_full):
                     create_thumbnail(full_path, thumb_full)
@@ -144,25 +159,34 @@ def list_images(request):
 @login_required
 @require_POST
 def delete_file(request):
-    """Deletes a file and its associated thumbnail from disk."""
+    """Deletes a file, its thumbnail, and its MediaFile DB record from disk."""
     file_rel_path = request.POST.get('file_rel_path')
     if file_rel_path:
-        media_root = settings.MEDIA_ROOT
+        media_root = str(settings.MEDIA_ROOT)
 
         # Prevent directory traversal attacks
         safe_rel_path = os.path.normpath(file_rel_path).lstrip('/\\')
         target_file = os.path.join(media_root, safe_rel_path)
 
-        # Delete original file
+        # Delete original file from disk
         if os.path.exists(target_file) and target_file.startswith(media_root):
             os.remove(target_file)
 
-        # Delete thumbnail if it exists
-        dir_name, file_name = os.path.split(safe_rel_path)
+        # Delete thumbnail — normalise to forward slashes first so splitting works
+        # consistently on Windows regardless of os.path.normpath output
+        safe_rel_forward = safe_rel_path.replace('\\', '/')
+        dir_name, file_name = os.path.split(safe_rel_forward)
         base_name = os.path.splitext(file_name)[0]
         thumb_file = os.path.join(media_root, '.thumbnails', dir_name, f"{base_name}.jpg")
         if os.path.exists(thumb_file):
             os.remove(thumb_file)
+
+        # Delete MediaFile DB record so quota is updated immediately.
+        # Match by filename since file field stores an absolute path.
+        MediaFile.objects.filter(
+            owner=request.user,
+            filename=file_name
+        ).delete()
 
     return redirect('list_images')
 
@@ -203,7 +227,7 @@ def upload_single_file(request):
         )
 
         # Trigger background thumbnail generation using Huey
-        generate_image_thumbnail.delay(media_file.id)
+        generate_image_thumbnail(media_file.id)
 
         # Generate thumbnail if image for static serverapp rendering
         ext = os.path.splitext(uploaded_file.name)[1].lower()

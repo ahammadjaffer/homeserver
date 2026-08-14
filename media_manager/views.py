@@ -1,4 +1,5 @@
 import json
+import os
 import mimetypes
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
@@ -6,8 +7,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse, Http404
 from django.views.decorators.http import require_http_methods
-from django.db.models import Count
+from django.db.models import Count, Sum
 from django.core.cache import cache
+from django.conf import settings
 
 from .forms import SignUpForm, LoginForm
 from .models import Folder, MediaFile
@@ -256,7 +258,7 @@ def upload_media_file(request):
     )
 
     # Immediately trigger Huey background thumbnail generation
-    generate_image_thumbnail.delay(media_file.id)
+    generate_image_thumbnail(media_file.id)
 
     return JsonResponse({
         'success': True,
@@ -294,3 +296,181 @@ def stream_media(request, file_id):
     response['X-Accel-Redirect'] = x_accel_path
     response['Content-Disposition'] = f'inline; filename="{media_file.filename}"'
     return response
+
+
+# --- DRIVE VIEW (SPA Shell) ---
+
+@login_required
+def drive_view(request):
+    """Renders the Google Drive-style SPA shell."""
+    used_bytes = MediaFile.objects.filter(owner=request.user).aggregate(
+        total=Sum('file_size')
+    )['total'] or 0
+    quota_mb = getattr(request.user, 'storage_quota_mb', 5000)
+
+    return render(request, 'media_manager/drive.html', {
+        'used_bytes': used_bytes,
+        'storage_quota_mb': quota_mb,
+    })
+
+
+# --- FOLDER CONTENTS API ---
+
+@login_required
+@require_http_methods(["GET"])
+def get_folder_contents(request, folder_id=None):
+    """
+    Returns subfolders and files for a given folder (or root if folder_id is None).
+    This is the core API powering folder navigation in the drive UI.
+    """
+    folder = None
+    breadcrumbs = [{"id": None, "name": "My Drive"}]
+
+    if folder_id is not None:
+        try:
+            folder = Folder.objects.get(id=folder_id, owner=request.user)
+        except Folder.DoesNotExist:
+            return JsonResponse({'error': 'Folder not found.'}, status=404)
+
+        # Build breadcrumb chain by walking up parent chain
+        chain = []
+        node = folder
+        while node:
+            chain.append({"id": node.id, "name": node.name})
+            node = node.parent
+        breadcrumbs += reversed(chain)
+
+    # Subfolders in this directory
+    subfolders = Folder.objects.filter(
+        owner=request.user, parent=folder
+    ).annotate(file_count=Count('files')).order_by('name')
+
+    # Files in this directory
+    files = MediaFile.objects.filter(
+        owner=request.user, folder=folder
+    ).order_by('-created_at')
+
+    def thumb_url(mf):
+        if mf.thumbnail:
+            return request.build_absolute_uri(mf.thumbnail.url)
+        return None
+
+    def file_icon(mime):
+        if mime and mime.startswith('image/'): return 'image'
+        if mime and mime.startswith('video/'): return 'video'
+        if mime and mime.startswith('audio/'): return 'audio'
+        if mime == 'application/pdf': return 'pdf'
+        return 'file'
+
+    return JsonResponse({
+        'success': True,
+        'folder': {'id': folder.id, 'name': folder.name, 'parent_id': folder.parent_id} if folder else None,
+        'breadcrumbs': list(breadcrumbs),
+        'folders': [
+            {
+                'id': f.id,
+                'name': f.name,
+                'parent_id': f.parent_id,
+                'file_count': f.file_count,
+                'created_at': f.created_at.isoformat(),
+            }
+            for f in subfolders
+        ],
+        'files': [
+            {
+                'id': mf.id,
+                'filename': mf.filename,
+                'file_size': mf.file_size,
+                'mime_type': mf.mime_type,
+                'icon_type': file_icon(mf.mime_type),
+                'thumbnail_url': thumb_url(mf),
+                'stream_url': f'/stream/{mf.id}/',
+                'created_at': mf.created_at.isoformat(),
+            }
+            for mf in files
+        ],
+    })
+
+
+# --- FILE MANAGEMENT API ---
+
+@login_required
+@require_http_methods(["POST", "DELETE"])
+def delete_media_file(request, file_id):
+    """Deletes a MediaFile record, its file on disk, and its thumbnail."""
+    try:
+        media_file = MediaFile.objects.get(id=file_id, owner=request.user)
+    except MediaFile.DoesNotExist:
+        return JsonResponse({'error': 'File not found.'}, status=404)
+
+    # Delete physical file from disk
+    if media_file.file:
+        try:
+            file_path = media_file.file.path
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception:
+            pass
+
+    # Delete thumbnail from disk
+    if media_file.thumbnail:
+        try:
+            thumb_path = media_file.thumbnail.path
+            if os.path.exists(thumb_path):
+                os.remove(thumb_path)
+        except Exception:
+            pass
+
+    media_file.delete()
+    invalidate_user_folder_cache(request.user.id)
+
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_http_methods(["POST", "PATCH"])
+def rename_media_file(request, file_id):
+    """Renames a MediaFile's display filename."""
+    try:
+        media_file = MediaFile.objects.get(id=file_id, owner=request.user)
+    except MediaFile.DoesNotExist:
+        return JsonResponse({'error': 'File not found.'}, status=404)
+
+    data = get_request_data(request)
+    new_name = data.get('filename', '').strip()
+    if not new_name:
+        return JsonResponse({'error': 'Filename is required.'}, status=400)
+
+    media_file.filename = new_name
+    media_file.save(update_fields=['filename'])
+
+    return JsonResponse({
+        'success': True,
+        'file': {'id': media_file.id, 'filename': media_file.filename}
+    })
+
+
+@login_required
+@require_http_methods(["POST", "PATCH"])
+def move_media_file(request, file_id):
+    """Moves a MediaFile to a different folder (or to root if folder_id is null)."""
+    try:
+        media_file = MediaFile.objects.get(id=file_id, owner=request.user)
+    except MediaFile.DoesNotExist:
+        return JsonResponse({'error': 'File not found.'}, status=404)
+
+    data = get_request_data(request)
+    folder_id = data.get('folder_id')
+
+    target_folder = None
+    if folder_id:
+        try:
+            target_folder = Folder.objects.get(id=folder_id, owner=request.user)
+        except Folder.DoesNotExist:
+            return JsonResponse({'error': 'Target folder not found.'}, status=404)
+
+    media_file.folder = target_folder
+    media_file.save(update_fields=['folder'])
+    invalidate_user_folder_cache(request.user.id)
+
+    return JsonResponse({'success': True})

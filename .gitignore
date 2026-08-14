@@ -224,3 +224,6 @@ images/
 
 setup.txt
 homeserver.txt
+
+.media_storage
+media_storage/

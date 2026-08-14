@@ -2,6 +2,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Drive SPA Root
+    path('', views.drive_view, name='list_images'),
+
     # Auth Routes
     path('signup/', views.signup_view, name='signup'),
     path('login/', views.login_view, name='login'),
@@ -13,7 +16,16 @@ urlpatterns = [
     path('api/folders/<int:folder_id>/delete/', views.delete_folder, name='api_delete_folder'),
     path('api/folders/tree/', views.get_folder_tree, name='api_folder_tree'),
 
-    # File Management & Streaming API Routes
+    # Folder Contents API (core navigation)
+    path('api/folders/contents/', views.get_folder_contents, name='api_folder_contents_root'),
+    path('api/folders/<int:folder_id>/contents/', views.get_folder_contents, name='api_folder_contents'),
+
+    # File Management API Routes
     path('api/files/upload/', views.upload_media_file, name='api_upload_file'),
+    path('api/files/<int:file_id>/delete/', views.delete_media_file, name='api_delete_file'),
+    path('api/files/<int:file_id>/rename/', views.rename_media_file, name='api_rename_file'),
+    path('api/files/<int:file_id>/move/', views.move_media_file, name='api_move_file'),
+
+    # Streaming Route
     path('stream/<int:file_id>/', views.stream_media, name='stream_media'),
 ]
