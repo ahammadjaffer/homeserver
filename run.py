@@ -16,10 +16,10 @@ from serverproject.wsgi import application
 
 
 def start_server():
-    print("Starting NitroStream on Waitress with Auto-Reload on http://127.0.0.1:8000 ...")
+    print("Starting NitroStream on Waitress with Auto-Reload on http://0.0.0.0:8000 ...")
     serve(
         application,
-        host='127.0.0.1',  # Bind locally; Nginx handles network traffic
+        host='0.0.0.0',    # Bind to 0.0.0.0 to support 192.168.1.13 and network devices
         port=8000,
         threads=8,
         channel_timeout=60,
