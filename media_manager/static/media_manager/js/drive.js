@@ -302,6 +302,9 @@ function showContextMenu(event, type, id, name) {
       <div class="ctx-item" onclick="ctxOpen()">
         <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>Open
       </div>
+      <div class="ctx-item" onclick="ctxShare()">
+        <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>Share / Link
+      </div>
       <div class="ctx-item" onclick="ctxRenameFolder()">
         <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>Rename
       </div>
@@ -313,6 +316,9 @@ function showContextMenu(event, type, id, name) {
     items = `
       <div class="ctx-item" onclick="ctxOpenFile()">
         <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>Open / Preview
+      </div>
+      <div class="ctx-item" onclick="ctxShare()">
+        <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>Share / Link
       </div>
       <div class="ctx-item" onclick="ctxDownloadFile()">
         <svg viewBox="0 0 24 24"><path d="M12 16l-5-5h3V4h4v7h3l-5 5zm9 4H3v-2h18v2z"/></svg>Download
@@ -358,6 +364,11 @@ function ctxDownloadFile() {
     a.href = file.stream_url; a.download = file.filename; a.click();
   }
   hideContextMenu();
+}
+
+function ctxShare() {
+  hideContextMenu();
+  openShareModal(_ctx.type, _ctx.id, _ctx.name);
 }
 
 function ctxRenameFolder() {
@@ -710,9 +721,93 @@ document.addEventListener('keydown', e => {
     closeLightbox();
     hideModal('rename-modal');
     hideModal('move-modal');
+    hideModal('share-modal');
     hideContextMenu();
   }
 });
+
+// ─── SHARE MODAL HANDLERS ───────────────────────────────────────────────────
+let _shareCtx = { type: null, id: null, name: null, isShared: false, url: '' };
+
+async function openShareModal(type, id, name) {
+  _shareCtx = { type, id, name, isShared: false, url: '' };
+
+  const titleEl = document.getElementById('share-modal-title');
+  const descEl  = document.getElementById('share-modal-desc');
+  if (titleEl) titleEl.textContent = `Share ${type === 'folder' ? 'Folder' : 'File'}: ${name}`;
+  if (descEl)  descEl.textContent = `Manage link access for "${name}".`;
+
+  showModal('share-modal');
+
+  // Fetch current status from backend
+  const data = await apiGet(`/api/shares/status/?type=${type}&id=${id}`);
+  if (data.success) {
+    _shareCtx.isShared = data.is_shared;
+    _shareCtx.url = data.share_url;
+    updateShareModalUI();
+  } else {
+    toast(data.error || 'Failed to fetch share status', 'error');
+  }
+}
+
+function updateShareModalUI() {
+  const labelEl = document.getElementById('share-toggle-label');
+  const subEl   = document.getElementById('share-toggle-sub');
+  const btnEl   = document.getElementById('btn-toggle-share');
+  const urlBox  = document.getElementById('share-url-container');
+  const urlInp  = document.getElementById('share-url-input');
+
+  if (_shareCtx.isShared) {
+    if (labelEl) labelEl.textContent = 'Sharing Enabled (Public to logged-in users)';
+    if (subEl)   subEl.textContent = 'Anyone logged into NitroStream with link can view';
+    if (btnEl)   { btnEl.textContent = 'Turn OFF'; btnEl.style.background = 'var(--danger)'; }
+    if (urlBox)  urlBox.style.display = 'flex';
+    if (urlInp)  urlInp.value = _shareCtx.url;
+  } else {
+    if (labelEl) labelEl.textContent = 'Sharing Disabled (Private)';
+    if (subEl)   subEl.textContent = 'Only you have access';
+    if (btnEl)   { btnEl.textContent = 'Turn ON'; btnEl.style.background = 'var(--accent)'; }
+    if (urlBox)  urlBox.style.display = 'none';
+    if (urlInp)  urlInp.value = '';
+  }
+}
+
+async function onShareButtonClick() {
+  const newStatus = !_shareCtx.isShared;
+  const data = await apiPost('/api/shares/toggle/', {
+    type: _shareCtx.type,
+    id: _shareCtx.id,
+    is_shared: newStatus
+  });
+
+  if (data.success) {
+    _shareCtx.isShared = data.is_shared;
+    _shareCtx.url = data.share_url;
+    updateShareModalUI();
+    toast(newStatus ? 'Share link activated!' : 'Sharing disabled.');
+  } else {
+    toast(data.error || 'Failed to update share status', 'error');
+  }
+}
+
+function copyShareUrl() {
+  const urlInp = document.getElementById('share-url-input');
+  if (!urlInp || !urlInp.value) return;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(urlInp.value).then(() => {
+      toast('Share URL copied to clipboard!', 'success');
+    }).catch(() => {
+      urlInp.select();
+      document.execCommand('copy');
+      toast('Share URL copied!', 'success');
+    });
+  } else {
+    urlInp.select();
+    document.execCommand('copy');
+    toast('Share URL copied!', 'success');
+  }
+}
 document.addEventListener('click', e => {
   if (!e.target.closest('.context-menu') && !e.target.closest('.card-menu-btn') && !e.target.closest('.list-menu-btn')) {
     hideContextMenu();

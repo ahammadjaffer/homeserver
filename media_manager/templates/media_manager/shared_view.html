@@ -1,0 +1,340 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if shared_name %}Shared: {{ shared_name }}{% else %}Shared Item — NitroStream{% endif %}</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Drive CSS -->
+    <link rel="stylesheet" href="{% static 'media_manager/css/drive.css' %}?v={% now 'U' %}">
+    
+    <script>
+        window.CSRF_TOKEN = "{{ csrf_token }}";
+        window.SHARE_TOKEN = "{{ share_token|default:'' }}";
+    </script>
+</head>
+<body>
+
+    <!-- APP LAYOUT -->
+    <div class="app-layout">
+        
+        <!-- SIDEBAR (READ ONLY SHARED NAV) -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="sidebar-logo-icon">
+                    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+                <div class="sidebar-logo-text">
+                    <span class="red">NITRO</span>STREAM
+                </div>
+            </div>
+
+            <!-- Back to My Drive -->
+            <a href="{% url 'list_images' %}" class="sidebar-upload-btn" style="text-align:center;justify-content:center;background:var(--border);">
+                <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                My Drive
+            </a>
+
+            <!-- Navigation Links -->
+            <nav class="sidebar-nav">
+                <div class="sidebar-nav-item active">
+                    <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+                    Shared with Me
+                </div>
+            </nav>
+
+            <div class="sidebar-section-label">Shared Info</div>
+            <div style="padding: 12px 20px; font-size: 0.82rem; color: var(--text-secondary);">
+                {% if owner_name %}
+                <div style="margin-bottom: 6px;">Shared by: <strong style="color:var(--text-primary)">{{ owner_name }}</strong></div>
+                <div style="font-size:0.75rem; color:var(--text-muted)">Read-only access</div>
+                {% endif %}
+            </div>
+        </aside>
+
+        <!-- MAIN PANEL -->
+        <main class="main-panel">
+            
+            <!-- TOP BAR -->
+            <header class="topbar">
+                <button class="topbar-btn sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle Menu">
+                    <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+                </button>
+
+                <div class="topbar-search">
+                    <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                    <input type="text" placeholder="Search shared items..." oninput="onSharedSearch(this.value)">
+                </div>
+
+                <div class="topbar-spacer"></div>
+
+                <div class="topbar-actions">
+                    <div class="user-chip">
+                        <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+                        <span>{{ user.username }}</span>
+                    </div>
+
+                    <a href="{% url 'logout' %}" class="logout-btn" title="Log Out">
+                        <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+                    </a>
+                </div>
+            </header>
+
+            <!-- BREADCRUMB BAR -->
+            <div class="breadcrumb-bar" id="shared-breadcrumb-bar">
+                <!-- Dynamically populated -->
+            </div>
+
+            <!-- TOOLBAR -->
+            <div class="files-toolbar">
+                <span class="files-toolbar-title" id="shared-toolbar-count">Loading shared contents...</span>
+                <div class="view-toggle">
+                    <button class="view-btn active" id="btn-grid" onclick="setSharedView('grid')" title="Grid View">
+                        <svg viewBox="0 0 24 24"><path d="M4 11h6a1 1 0 001-1V4a1 1 0 00-1-1H4a1 1 0 00-1 1v6a1 1 0 001 1zm10 0h6a1 1 0 001-1V4a1 1 0 00-1-1h-6a1 1 0 00-1 1v6a1 1 0 001 1zM4 21h6a1 1 0 001-1v-6a1 1 0 00-1-1H4a1 1 0 00-1 1v6a1 1 0 001 1zm10 0h6a1 1 0 001-1v-6a1 1 0 00-1-1h-6a1 1 0 00-1 1v6a1 1 0 001 1z"/></svg>
+                    </button>
+                    <button class="view-btn" id="btn-list" onclick="setSharedView('list')" title="List View">
+                        <svg viewBox="0 0 24 24"><path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- FILES AREA -->
+            <div class="files-area" id="shared-files-area">
+                {% if error %}
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                    <p>{{ error }}</p>
+                    <a href="{% url 'list_images' %}" class="modal-btn confirm" style="margin-top:10px;">Return to My Drive</a>
+                </div>
+                {% endif %}
+            </div>
+
+        </main>
+    </div>
+
+    <!-- SIDEBAR BACKDROP FOR MOBILE -->
+    <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeSidebar()"></div>
+
+    <!-- LIGHTBOX -->
+    <div class="lightbox" id="lightbox">
+        <button class="lightbox-close-btn" onclick="closeLightbox()">&times;</button>
+        <div class="lightbox-inner">
+            <img id="lightbox-img" src="" alt="Preview">
+            <video id="lightbox-video" controls autoplay></video>
+            <div class="lightbox-footer">
+                <span class="lightbox-caption" id="lightbox-caption"></span>
+                <a href="" download class="lightbox-download" id="lightbox-dl">
+                    <svg viewBox="0 0 24 24"><path d="M12 16l-5-5h3V4h4v7h3l-5 5zm9 4H3v-2h18v2z"/></svg>
+                    Download Original
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- SHARED JS LOGIC -->
+    <script>
+        const SharedState = {
+            shareToken: window.SHARE_TOKEN,
+            currentSubfolderId: null,
+            breadcrumbs: [],
+            folders: [],
+            files: [],
+            viewMode: 'grid',
+            searchQuery: ''
+        };
+
+        function toggleSidebar() {
+            document.querySelector('.sidebar')?.classList.toggle('open');
+            document.getElementById('sidebar-backdrop')?.classList.toggle('active');
+        }
+        function closeSidebar() {
+            document.querySelector('.sidebar')?.classList.remove('open');
+            document.getElementById('sidebar-backdrop')?.classList.remove('active');
+        }
+
+        async function loadSharedFolder(subfolderId = null) {
+            closeSidebar();
+            if (!SharedState.shareToken) return;
+
+            const url = subfolderId == null
+                ? `/api/shared/${SharedState.shareToken}/contents/`
+                : `/api/shared/${SharedState.shareToken}/contents/${subfolderId}/`;
+
+            const res = await fetch(url);
+            const data = await res.json();
+
+            if (!data.success) {
+                document.getElementById('shared-files-area').innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                        <p>${data.error || 'Failed to load shared item.'}</p>
+                    </div>`;
+                return;
+            }
+
+            SharedState.currentSubfolderId = subfolderId;
+            SharedState.breadcrumbs = data.breadcrumbs;
+            SharedState.folders = data.folders || [];
+            SharedState.files = data.files || [];
+
+            renderSharedBreadcrumbs();
+            renderSharedContents();
+        }
+
+        function renderSharedBreadcrumbs() {
+            const bar = document.getElementById('shared-breadcrumb-bar');
+            if (!bar) return;
+            bar.innerHTML = SharedState.breadcrumbs.map((bc, i) => {
+                const isLast = i === SharedState.breadcrumbs.length - 1;
+                const sep = i > 0 ? `<span class="bc-sep">/</span>` : '';
+                return `${sep}<span class="bc-item ${isLast ? 'active' : ''}" 
+                    onclick="${isLast ? '' : `loadSharedFolder(${JSON.stringify(bc.id)})`}">${bc.name}</span>`;
+            }).join('');
+        }
+
+        function renderSharedContents() {
+            const area = document.getElementById('shared-files-area');
+            if (!area) return;
+
+            const q = SharedState.searchQuery.toLowerCase();
+            const filteredFolders = SharedState.folders.filter(f => f.name.toLowerCase().includes(q));
+            const filteredFiles   = SharedState.files.filter(f => f.filename.toLowerCase().includes(q));
+
+            document.getElementById('shared-toolbar-count').textContent = 
+                `${filteredFolders.length} folder(s), ${filteredFiles.length} file(s)`;
+
+            if (filteredFolders.length === 0 && filteredFiles.length === 0) {
+                area.innerHTML = `<div class="empty-state">
+                    <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+                    <p>No items in this shared folder.</p>
+                </div>`;
+                return;
+            }
+
+            let html = '';
+            if (SharedState.viewMode === 'grid') {
+                if (filteredFolders.length) {
+                    html += `<div class="section-heading">Folders</div><div class="file-grid">`;
+                    filteredFolders.forEach(f => {
+                        html += `<div class="file-card folder-card" ondblclick="loadSharedFolder(${f.id})" onclick="loadSharedFolder(${f.id})">
+                            <div class="card-thumb"><svg viewBox="0 0 24 24" style="fill:var(--folder-color);width:52px;height:52px"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></div>
+                            <div class="card-info">
+                                <div class="card-name" title="${f.name}">${f.name}</div>
+                                <div class="card-meta">${f.file_count} items</div>
+                            </div>
+                        </div>`;
+                    });
+                    html += `</div>`;
+                }
+
+                if (filteredFiles.length) {
+                    html += `<div class="section-heading">Files</div><div class="file-grid">`;
+                    filteredFiles.forEach(f => {
+                        const ext = f.filename.split('.').pop().toUpperCase().slice(0, 5);
+                        const thumb = f.thumbnail_url
+                            ? `<img src="${f.thumbnail_url}" alt="${f.filename}" loading="lazy">`
+                            : `<div class="file-icon-wrap"><svg class="icon-file" viewBox="0 0 24 24" style="width:38px;height:38px"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg><span>${ext}</span></div>`;
+
+                        html += `<div class="file-card" onclick="openSharedFile('${f.stream_url}', '${f.filename}', '${f.mime_type}')">
+                            <div class="card-thumb">${thumb}<span class="type-badge">${ext}</span></div>
+                            <div class="card-info">
+                                <div class="card-name" title="${f.filename}">${f.filename}</div>
+                                <div class="card-meta">${(f.file_size/1048576).toFixed(1)} MB</div>
+                            </div>
+                        </div>`;
+                    });
+                    html += `</div>`;
+                }
+            } else {
+                html += `<div class="file-list">`;
+                filteredFolders.forEach(f => {
+                    html += `<div class="list-item" onclick="loadSharedFolder(${f.id})">
+                        <div class="list-icon"><svg viewBox="0 0 24 24" style="fill:var(--folder-color);width:22px;height:22px"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></div>
+                        <div class="list-name">${f.name}</div>
+                        <div class="list-size">${f.file_count} items</div>
+                    </div>`;
+                });
+                filteredFiles.forEach(f => {
+                    html += `<div class="list-item" onclick="openSharedFile('${f.stream_url}', '${f.filename}', '${f.mime_type}')">
+                        <div class="list-icon"><svg viewBox="0 0 24 24" style="fill:var(--text-muted);width:22px;height:22px"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/></svg></div>
+                        <div class="list-name">${f.filename}</div>
+                        <div class="list-size">${(f.file_size/1048576).toFixed(1)} MB</div>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+
+            area.innerHTML = html;
+        }
+
+        function openSharedFile(streamUrl, filename, mimeType) {
+            if (mimeType && mimeType.startsWith('image/')) {
+                openLightboxImg(streamUrl, filename);
+            } else if (mimeType && mimeType.startsWith('video/')) {
+                openLightboxVid(streamUrl, filename);
+            } else {
+                window.open(streamUrl, '_blank');
+            }
+        }
+
+        function openLightboxImg(src, filename) {
+            const lb = document.getElementById('lightbox');
+            const img = document.getElementById('lightbox-img');
+            const vid = document.getElementById('lightbox-video');
+            const dl  = document.getElementById('lightbox-dl');
+            const cap = document.getElementById('lightbox-caption');
+            if (vid) { vid.pause(); vid.src = ''; vid.style.display = 'none'; }
+            img.src = src; img.style.display = 'block';
+            if (cap) cap.textContent = filename;
+            if (dl) { dl.href = src; dl.download = filename; }
+            lb.classList.add('active');
+        }
+
+        function openLightboxVid(src, filename) {
+            const lb = document.getElementById('lightbox');
+            const img = document.getElementById('lightbox-img');
+            const vid = document.getElementById('lightbox-video');
+            const dl  = document.getElementById('lightbox-dl');
+            const cap = document.getElementById('lightbox-caption');
+            if (img) { img.src = ''; img.style.display = 'none'; }
+            vid.src = src; vid.style.display = 'block'; vid.play();
+            if (cap) cap.textContent = filename;
+            if (dl) { dl.href = src; dl.download = filename; }
+            lb.classList.add('active');
+        }
+
+        function closeLightbox() {
+            const lb  = document.getElementById('lightbox');
+            const img = document.getElementById('lightbox-img');
+            const vid = document.getElementById('lightbox-video');
+            if (lb)  lb.classList.remove('active');
+            if (img) { img.src = ''; img.style.display = 'none'; }
+            if (vid) { vid.pause(); vid.src = ''; vid.style.display = 'none'; }
+        }
+
+        function setSharedView(mode) {
+            SharedState.viewMode = mode;
+            document.getElementById('btn-grid')?.classList.toggle('active', mode === 'grid');
+            document.getElementById('btn-list')?.classList.toggle('active', mode === 'list');
+            renderSharedContents();
+        }
+
+        function onSharedSearch(val) {
+            SharedState.searchQuery = val;
+            renderSharedContents();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (SharedState.shareToken) {
+                loadSharedFolder(null);
+            }
+        });
+    </script>
+</body>
+</html>
