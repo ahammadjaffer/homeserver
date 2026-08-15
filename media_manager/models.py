@@ -25,9 +25,21 @@ class Folder(models.Model):
         blank=True,
         related_name='subfolders'
     )
+    SHARE_MODE_CHOICES = (
+        ('private', 'Private'),
+        ('restricted', 'Restricted'),
+        ('link', 'Anyone with Link'),
+    )
+
+    share_mode = models.CharField(max_length=20, choices=SHARE_MODE_CHOICES, default='private')
+    shared_users = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name='shared_folders')
     is_shared = models.BooleanField(default=False)
     share_token = models.UUIDField(default=uuid.uuid4, null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        self.is_shared = (self.share_mode != 'private')
+        super().save(*args, **kwargs)
 
     class Meta:
         unique_together = ('name', 'parent', 'owner')
@@ -40,6 +52,12 @@ class Folder(models.Model):
 
 
 class MediaFile(models.Model):
+    SHARE_MODE_CHOICES = (
+        ('private', 'Private'),
+        ('restricted', 'Restricted'),
+        ('link', 'Anyone with Link'),
+    )
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -57,9 +75,15 @@ class MediaFile(models.Model):
     file_size = models.BigIntegerField()
     mime_type = models.CharField(max_length=100)
     thumbnail = models.ImageField(upload_to='thumbnails/%Y/%m/%d/', null=True, blank=True)
+    share_mode = models.CharField(max_length=20, choices=SHARE_MODE_CHOICES, default='private')
+    shared_users = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name='shared_files')
     is_shared = models.BooleanField(default=False)
     share_token = models.UUIDField(default=uuid.uuid4, null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        self.is_shared = (self.share_mode != 'private')
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['-created_at']

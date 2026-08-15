@@ -680,6 +680,172 @@ function closeLightbox() {
   if (vid) { vid.pause(); vid.src = ''; vid.style.display = 'none'; }
 }
 
+// ─── SHARE MODAL & GRANULAR ACCESS CONTROL ──────────────────────────────────
+let _shareCtx = { type: null, id: null, name: '', mode: 'private', url: '', users: [] };
+let _userSearchTimer = null;
+
+async function openShareModal(type, id, name) {
+  _shareCtx = { type, id, name, mode: 'private', url: '', users: [] };
+  const titleEl = document.getElementById('share-modal-title');
+  const descEl  = document.getElementById('share-modal-desc');
+  if (titleEl) titleEl.textContent = `Share "${name}"`;
+  if (descEl)  descEl.textContent  = `Manage access settings for ${type === 'folder' ? 'folder' : 'file'}.`;
+
+  const searchInp = document.getElementById('share-user-search');
+  if (searchInp) searchInp.value = '';
+  hideUserAutocomplete();
+
+  showModal('share-modal');
+
+  // Fetch current status from backend
+  const data = await apiGet(`/api/shares/status/?type=${type}&id=${id}`);
+  if (data.success) {
+    _shareCtx.mode  = data.share_mode || (data.is_shared ? 'link' : 'private');
+    _shareCtx.url   = data.share_url;
+    _shareCtx.users = data.shared_users || [];
+    renderShareModalUI();
+  } else {
+    toast(data.error || 'Failed to fetch share status', 'error');
+  }
+}
+
+function selectShareMode(mode) {
+  _shareCtx.mode = mode;
+  renderShareModalUI();
+}
+
+function renderShareModalUI() {
+  const mode = _shareCtx.mode;
+  ['private', 'restricted', 'link'].forEach(m => {
+    const card  = document.getElementById(`card-mode-${m}`);
+    const radio = document.getElementById(`radio-mode-${m}`);
+    if (card)  card.classList.toggle('selected', mode === m);
+    if (radio) radio.checked = (mode === m);
+  });
+
+  const restrictedSec = document.getElementById('share-restricted-section');
+  if (restrictedSec) restrictedSec.style.display = (mode === 'restricted') ? 'block' : 'none';
+
+  const urlBox = document.getElementById('share-url-container');
+  const urlInp = document.getElementById('share-url-input');
+  if (mode === 'private') {
+    if (urlBox) urlBox.style.display = 'none';
+    if (urlInp) urlInp.value = '';
+  } else {
+    if (urlBox) urlBox.style.display = 'flex';
+    if (urlInp) urlInp.value = _shareCtx.url;
+  }
+
+  renderUserChips();
+}
+
+function renderUserChips() {
+  const container = document.getElementById('share-user-chips');
+  if (!container) return;
+
+  if (_shareCtx.users.length === 0) {
+    container.innerHTML = `<div style="font-size:0.75rem; color:var(--text-muted);" id="no-users-label">No users added yet. Search and select accounts below.</div>`;
+    return;
+  }
+
+  container.innerHTML = _shareCtx.users.map(u => `
+    <div class="user-chip-badge">
+      <span>${esc(u.username)}</span>
+      <span class="chip-remove" onclick="removeUserFromShareList(${u.id})">&times;</span>
+    </div>
+  `).join('');
+}
+
+function onUserSearchInput(q) {
+  clearTimeout(_userSearchTimer);
+  q = q.trim();
+  if (!q) {
+    hideUserAutocomplete();
+    return;
+  }
+
+  _userSearchTimer = setTimeout(async () => {
+    const data = await apiGet(`/api/users/search/?q=${encodeURIComponent(q)}`);
+    if (data.users && data.users.length > 0) {
+      renderUserAutocomplete(data.users);
+    } else {
+      renderUserAutocomplete([]);
+    }
+  }, 250);
+}
+
+function renderUserAutocomplete(users) {
+  const box = document.getElementById('share-user-results');
+  if (!box) return;
+
+  // Exclude users already added
+  const existingIds = new Set(_shareCtx.users.map(u => u.id));
+  const availableUsers = users.filter(u => !existingIds.has(u.id));
+
+  if (availableUsers.length === 0) {
+    box.innerHTML = `<div style="padding:8px 12px; font-size:0.8rem; color:var(--text-muted);">No matching accounts found.</div>`;
+    box.style.display = 'block';
+    return;
+  }
+
+  box.innerHTML = availableUsers.map(u => `
+    <div class="user-autocomplete-item" onclick="addUserToShareList(${u.id}, '${escAttr(u.username)}')">
+      <svg style="width:14px; height:14px; fill:currentColor;" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      <span>${esc(u.username)}</span>
+    </div>
+  `).join('');
+  box.style.display = 'block';
+}
+
+function hideUserAutocomplete() {
+  const box = document.getElementById('share-user-results');
+  if (box) {
+    box.style.display = 'none';
+    box.innerHTML = '';
+  }
+}
+
+function addUserToShareList(id, username) {
+  if (!_shareCtx.users.some(u => u.id === id)) {
+    _shareCtx.users.push({ id, username });
+    renderUserChips();
+  }
+  const searchInp = document.getElementById('share-user-search');
+  if (searchInp) searchInp.value = '';
+  hideUserAutocomplete();
+}
+
+function removeUserFromShareList(userId) {
+  _shareCtx.users = _shareCtx.users.filter(u => u.id !== userId);
+  renderUserChips();
+}
+
+async function saveShareSettings() {
+  const userIds = _shareCtx.users.map(u => u.id);
+  const data = await apiPost('/api/shares/update/', {
+    type: _shareCtx.type,
+    id: _shareCtx.id,
+    share_mode: _shareCtx.mode,
+    user_ids: userIds
+  });
+
+  if (data.success) {
+    _shareCtx.mode  = data.share_mode;
+    _shareCtx.url   = data.share_url;
+    _shareCtx.users = data.shared_users || [];
+    hideModal('share-modal');
+    if (_shareCtx.mode === 'private') {
+      toast('Sharing disabled.');
+    } else if (_shareCtx.mode === 'restricted') {
+      toast(`Shared with ${data.shared_users.length} account(s)!`);
+    } else {
+      toast('Share link activated for all users!');
+    }
+  } else {
+    toast(data.error || 'Failed to save share settings', 'error');
+  }
+}
+
 // ─── VIEW TOGGLE ─────────────────────────────────────────────────────────────
 function setView(mode) {
   State.viewMode = mode;
@@ -726,88 +892,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ─── SHARE MODAL HANDLERS ───────────────────────────────────────────────────
-let _shareCtx = { type: null, id: null, name: null, isShared: false, url: '' };
-
-async function openShareModal(type, id, name) {
-  _shareCtx = { type, id, name, isShared: false, url: '' };
-
-  const titleEl = document.getElementById('share-modal-title');
-  const descEl  = document.getElementById('share-modal-desc');
-  if (titleEl) titleEl.textContent = `Share ${type === 'folder' ? 'Folder' : 'File'}: ${name}`;
-  if (descEl)  descEl.textContent = `Manage link access for "${name}".`;
-
-  showModal('share-modal');
-
-  // Fetch current status from backend
-  const data = await apiGet(`/api/shares/status/?type=${type}&id=${id}`);
-  if (data.success) {
-    _shareCtx.isShared = data.is_shared;
-    _shareCtx.url = data.share_url;
-    updateShareModalUI();
-  } else {
-    toast(data.error || 'Failed to fetch share status', 'error');
-  }
-}
-
-function updateShareModalUI() {
-  const labelEl = document.getElementById('share-toggle-label');
-  const subEl   = document.getElementById('share-toggle-sub');
-  const btnEl   = document.getElementById('btn-toggle-share');
-  const urlBox  = document.getElementById('share-url-container');
-  const urlInp  = document.getElementById('share-url-input');
-
-  if (_shareCtx.isShared) {
-    if (labelEl) labelEl.textContent = 'Sharing Enabled (Public to logged-in users)';
-    if (subEl)   subEl.textContent = 'Anyone logged into NitroStream with link can view';
-    if (btnEl)   { btnEl.textContent = 'Turn OFF'; btnEl.style.background = 'var(--danger)'; }
-    if (urlBox)  urlBox.style.display = 'flex';
-    if (urlInp)  urlInp.value = _shareCtx.url;
-  } else {
-    if (labelEl) labelEl.textContent = 'Sharing Disabled (Private)';
-    if (subEl)   subEl.textContent = 'Only you have access';
-    if (btnEl)   { btnEl.textContent = 'Turn ON'; btnEl.style.background = 'var(--accent)'; }
-    if (urlBox)  urlBox.style.display = 'none';
-    if (urlInp)  urlInp.value = '';
-  }
-}
-
-async function onShareButtonClick() {
-  const newStatus = !_shareCtx.isShared;
-  const data = await apiPost('/api/shares/toggle/', {
-    type: _shareCtx.type,
-    id: _shareCtx.id,
-    is_shared: newStatus
-  });
-
-  if (data.success) {
-    _shareCtx.isShared = data.is_shared;
-    _shareCtx.url = data.share_url;
-    updateShareModalUI();
-    toast(newStatus ? 'Share link activated!' : 'Sharing disabled.');
-  } else {
-    toast(data.error || 'Failed to update share status', 'error');
-  }
-}
-
-function copyShareUrl() {
-  const urlInp = document.getElementById('share-url-input');
-  if (!urlInp || !urlInp.value) return;
-
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(urlInp.value).then(() => {
-      toast('Share URL copied to clipboard!', 'success');
-    }).catch(() => {
-      urlInp.select();
-      document.execCommand('copy');
-      toast('Share URL copied!', 'success');
-    });
-  } else {
-    urlInp.select();
-    document.execCommand('copy');
-    toast('Share URL copied!', 'success');
-  }
-}
 document.addEventListener('click', e => {
   if (!e.target.closest('.context-menu') && !e.target.closest('.card-menu-btn') && !e.target.closest('.list-menu-btn')) {
     hideContextMenu();

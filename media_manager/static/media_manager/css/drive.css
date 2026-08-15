@@ -918,5 +918,128 @@ svg { display: block; }
   }
 }
 
+/* ===== SHARE MODAL & GRANULAR ACCESS CONTROL STYLES ===== */
+.share-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.share-mode-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.share-mode-card:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+}
+
+.share-mode-card.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.share-mode-card input[type="radio"] {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+
+.share-mode-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.share-mode-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.share-mode-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.user-search-wrapper {
+  position: relative;
+  margin: 8px 0;
+}
+
+.user-autocomplete-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  max-height: 160px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: var(--shadow-card);
+  display: none;
+}
+
+.user-autocomplete-item {
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-autocomplete-item:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.user-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.user-chip-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(74, 158, 255, 0.15);
+  border: 1px solid rgba(74, 158, 255, 0.3);
+  color: #60a5fa;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.user-chip-badge .chip-remove {
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9rem;
+  opacity: 0.7;
+  line-height: 1;
+}
+
+.user-chip-badge .chip-remove:hover {
+  opacity: 1;
+  color: var(--danger);
+}
+
+
 
 

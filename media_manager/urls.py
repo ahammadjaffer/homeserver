@@ -30,7 +30,9 @@ urlpatterns = [
     path('stream/<int:file_id>/', views.stream_media, name='stream_media'),
 
     # Share Feature Routes
+    path('api/users/search/', views.search_users, name='api_search_users'),
     path('api/shares/toggle/', views.toggle_share_status, name='api_toggle_share'),
+    path('api/shares/update/', views.update_share_settings, name='api_update_share'),
     path('api/shares/status/', views.get_share_status, name='api_share_status'),
     path('share/<uuid:share_token>/', views.shared_item_view, name='shared_item_view'),
     path('api/shared/<uuid:share_token>/contents/', views.get_shared_contents, name='api_shared_contents_root'),
