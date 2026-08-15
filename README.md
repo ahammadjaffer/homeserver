@@ -1,6 +1,6 @@
 # NitroStream 🚀
 
-**NitroStream** is a lightweight, self-hosted, high-performance home media server and cloud storage system built with **Django**, **Waitress**, **Nginx**, and **Huey**. Designed to run on local hardware (such as an Acer Nitro 5), NitroStream delivers a Google Drive / MEGA-style file manager, granular account-specific file sharing, asynchronous background video/image processing, streaming-ready media playback, real-time file searching, and batch uploads without relying on third-party cloud services.
+**NitroStream** is a lightweight, self-hosted, high-performance home media server and cloud storage system built with **Django**, **Waitress**, **Nginx**, and **Huey**. Designed to run on local hardware (such as an Acer Nitro 5), NitroStream delivers a file manager, granular account-specific file sharing, asynchronous background video/image processing, streaming-ready media playback, real-time file searching, and batch uploads without relying on third-party cloud services.
 
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Django](https://img.shields.io/badge/Django-4.2+-092E20?style=for-the-badge&logo=django&logoColor=white)
@@ -11,7 +11,7 @@
 
 ## ✨ Key Features
 
-- **📁 Google Drive / MEGA Style File Manager:** Full Single Page Application (SPA) with nested folder management, interactive sidebar tree, breadcrumb navigation, grid/list view toggles, and real-time gallery search.
+- **📁 File Manager:** Full Single Page Application (SPA) with nested folder management, interactive sidebar tree, breadcrumb navigation, grid/list view toggles, and real-time gallery search.
 - **📱 Mobile Responsive & Quick Upload FAB:** Off-canvas collapsible sidebar drawer with topbar hamburger button (`☰`) and a fixed floating action upload button (`+` FAB) for mobile devices.
 - **🔒 Granular Account-Specific & Link Sharing:** Share individual files or entire folder subtrees using 128-bit cryptographically secure UUID tokens (`/share/<uuid>/`). Supports three access modes:
   - 🔒 **Private**: Author access only.
@@ -50,7 +50,7 @@ NitroStream/
 │   ├── urls.py                 # Route definitions for drive, shares, & streaming
 │   ├── templates/
 │   │   └── media_manager/
-│   │       ├── drive.html      # Google Drive style SPA shell template
+│   │       ├── drive.html      # file manager style SPA shell template
 │   │       └── shared_view.html# Read-only recipient shared SPA template
 │   └── static/
 │       └── media_manager/
