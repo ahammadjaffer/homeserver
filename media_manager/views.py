@@ -1,13 +1,14 @@
 import json
 import os
 import mimetypes
+import urllib.parse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse, Http404
 from django.views.decorators.http import require_http_methods
-from django.db.models import Count, Sum
+from django.db.models import Count, Sum, Q
 from django.core.cache import cache
 from django.conf import settings
 
@@ -15,6 +16,21 @@ from .forms import SignUpForm, LoginForm
 from .models import Folder, MediaFile
 from .signals import get_folder_cache_key, invalidate_user_folder_cache
 from .tasks import generate_image_thumbnail
+
+
+# Module-level helper functions for UI serialization
+def get_file_icon(mime):
+    if mime and mime.startswith('image/'): return 'image'
+    if mime and mime.startswith('video/'): return 'video'
+    if mime and mime.startswith('audio/'): return 'audio'
+    if mime == 'application/pdf': return 'pdf'
+    return 'file'
+
+
+def build_thumb_url(request, media_file):
+    if media_file.thumbnail:
+        return request.build_absolute_uri(media_file.thumbnail.url)
+    return None
 
 
 # Helper to parse JSON or POST data from request
@@ -158,6 +174,14 @@ def rename_folder(request, folder_id):
     })
 
 
+def get_all_descendant_folder_ids(root_folder):
+    folder_ids = [root_folder.id]
+    subfolders = list(Folder.objects.filter(parent=root_folder))
+    for sf in subfolders:
+        folder_ids.extend(get_all_descendant_folder_ids(sf))
+    return folder_ids
+
+
 @login_required
 @require_http_methods(["DELETE", "POST"])
 def delete_folder(request, folder_id):
@@ -166,13 +190,35 @@ def delete_folder(request, folder_id):
     except Folder.DoesNotExist:
         return JsonResponse({'error': 'Folder not found.'}, status=404)
 
+    # 1. Gather all descendant folder IDs
+    all_folder_ids = get_all_descendant_folder_ids(folder)
+
+    # 2. Delete physical files and thumbnails from disk for all contained MediaFiles
+    media_files = MediaFile.objects.filter(folder_id__in=all_folder_ids, owner=request.user)
+    for media_file in media_files:
+        if media_file.file:
+            try:
+                file_path = media_file.file.path
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception:
+                pass
+        if media_file.thumbnail:
+            try:
+                thumb_path = media_file.thumbnail.path
+                if os.path.exists(thumb_path):
+                    os.remove(thumb_path)
+            except Exception:
+                pass
+
+    # 3. Delete folder (CASCADE handles DB records)
     folder.delete()
 
     invalidate_user_folder_cache(request.user.id)
 
     return JsonResponse({
         'success': True,
-        'message': 'Folder deleted successfully.'
+        'message': 'Folder and all contained files deleted successfully.'
     })
 
 
@@ -244,7 +290,8 @@ def upload_media_file(request):
         except Folder.DoesNotExist:
             return JsonResponse({'error': 'Target folder not found.'}, status=404)
 
-    mime_type, _ = mimetypes.guess_type(uploaded_file.name)
+    safe_filename = os.path.basename(uploaded_file.name)
+    mime_type, _ = mimetypes.guess_type(safe_filename)
     if not mime_type:
         mime_type = uploaded_file.content_type or 'application/octet-stream'
 
@@ -252,7 +299,7 @@ def upload_media_file(request):
         owner=request.user,
         folder=folder,
         file=uploaded_file,
-        filename=uploaded_file.name,
+        filename=safe_filename,
         file_size=uploaded_file.size,
         mime_type=mime_type
     )
@@ -290,14 +337,46 @@ def is_descendant_of(folder, ancestor_folder):
     return False
 
 
+def get_ancestor_folder_ids(folder):
+    ancestors = []
+    node = folder
+    while node:
+        ancestors.append(node.id)
+        node = node.parent
+    return ancestors
+
+
+def user_has_share_access_to_folder(user, folder):
+    """
+    Checks if a user has access to a Folder (or any of its parent folders).
+    Optimized single-query check across all ancestors.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if folder.owner == user:
+        return True
+
+    ancestor_ids = get_ancestor_folder_ids(folder)
+    if not ancestor_ids:
+        return False
+
+    return Folder.objects.filter(
+        id__in=ancestor_ids
+    ).filter(
+        Q(share_mode='link') |
+        Q(is_shared=True, share_mode='private') |
+        Q(share_mode='restricted', shared_users=user)
+    ).exists()
+
+
 def user_has_share_access_to_file(user, media_file):
     """
     Checks if a user has access to a MediaFile.
     Access granted if:
     1. User is the owner.
-    2. File share_mode is 'link' (or legacy is_shared=True).
+    2. File share_mode is 'link'.
     3. File share_mode is 'restricted' AND user in media_file.shared_users.
-    4. Any folder in parent chain has share_mode=='link' OR (share_mode=='restricted' AND user in folder.shared_users).
+    4. Any parent folder in ancestor chain grants share access.
     """
     if not user or not user.is_authenticated:
         return False
@@ -310,33 +389,9 @@ def user_has_share_access_to_file(user, media_file):
     if media_file.share_mode == 'restricted' and media_file.shared_users.filter(id=user.id).exists():
         return True
 
-    # Check parent chain level
-    node = media_file.folder
-    while node:
-        if node.share_mode == 'link' or (node.is_shared and node.share_mode == 'private'):
-            return True
-        if node.share_mode == 'restricted' and node.shared_users.filter(id=user.id).exists():
-            return True
-        node = node.parent
-    return False
+    if media_file.folder:
+        return user_has_share_access_to_folder(user, media_file.folder)
 
-
-def user_has_share_access_to_folder(user, folder):
-    """
-    Checks if a user has access to a Folder.
-    """
-    if not user or not user.is_authenticated:
-        return False
-    if folder.owner == user:
-        return True
-
-    node = folder
-    while node:
-        if node.share_mode == 'link' or (node.is_shared and node.share_mode == 'private'):
-            return True
-        if node.share_mode == 'restricted' and node.shared_users.filter(id=user.id).exists():
-            return True
-        node = node.parent
     return False
 
 
@@ -346,6 +401,7 @@ def stream_media(request, file_id):
     """
     Secure media streaming endpoint using Nginx X-Accel-Redirect.
     Verifies user ownership or valid active share authorization before offloading to Nginx sendfile.
+    Sanitizes HTTP Content-Disposition header to prevent header injection.
     """
     try:
         media_file = MediaFile.objects.get(id=file_id)
@@ -361,9 +417,12 @@ def stream_media(request, file_id):
     relative_path = str(media_file.file.name).replace('\\', '/').lstrip('/')
     x_accel_path = f"/protected_media/{relative_path}"
 
+    safe_filename = media_file.filename.replace('\r', '').replace('\n', '').replace('"', "'")
+    encoded_filename = urllib.parse.quote(safe_filename)
+
     response = HttpResponse(content_type=media_file.mime_type)
     response['X-Accel-Redirect'] = x_accel_path
-    response['Content-Disposition'] = f'inline; filename="{media_file.filename}"'
+    response['Content-Disposition'] = f'inline; filename="{safe_filename}"; filename*=UTF-8\'\'{encoded_filename}'
     return response
 
 
@@ -419,18 +478,6 @@ def get_folder_contents(request, folder_id=None):
         owner=request.user, folder=folder
     ).order_by('-created_at')
 
-    def thumb_url(mf):
-        if mf.thumbnail:
-            return request.build_absolute_uri(mf.thumbnail.url)
-        return None
-
-    def file_icon(mime):
-        if mime and mime.startswith('image/'): return 'image'
-        if mime and mime.startswith('video/'): return 'video'
-        if mime and mime.startswith('audio/'): return 'audio'
-        if mime == 'application/pdf': return 'pdf'
-        return 'file'
-
     return JsonResponse({
         'success': True,
         'folder': {'id': folder.id, 'name': folder.name, 'parent_id': folder.parent_id} if folder else None,
@@ -451,8 +498,8 @@ def get_folder_contents(request, folder_id=None):
                 'filename': mf.filename,
                 'file_size': mf.file_size,
                 'mime_type': mf.mime_type,
-                'icon_type': file_icon(mf.mime_type),
-                'thumbnail_url': thumb_url(mf),
+                'icon_type': get_file_icon(mf.mime_type),
+                'thumbnail_url': build_thumb_url(request, mf),
                 'stream_url': f'/stream/{mf.id}/',
                 'created_at': mf.created_at.isoformat(),
             }
@@ -575,66 +622,22 @@ def search_users(request):
 def toggle_share_status(request):
     """
     Owner API to toggle public/shared access ON or OFF for a file or folder.
+    Delegates to update_share_settings to maintain consistent state.
     """
     data = get_request_data(request)
-    item_type = data.get('type')  # 'file' or 'folder'
-    item_id = data.get('id')
     is_shared = bool(data.get('is_shared', False))
-
-    if item_type not in ('file', 'folder') or not item_id:
-        return JsonResponse({'error': 'Invalid request parameters.'}, status=400)
-
-    import uuid
-    share_mode = 'link' if is_shared else 'private'
-
-    if item_type == 'folder':
-        try:
-            folder = Folder.objects.get(id=item_id, owner=request.user)
-        except Folder.DoesNotExist:
-            return JsonResponse({'error': 'Folder not found.'}, status=404)
-
-        if not folder.share_token:
-            folder.share_token = uuid.uuid4()
-        folder.share_mode = share_mode
-        folder.is_shared = is_shared
-        folder.save()
-
-        share_token_str = str(folder.share_token)
-        share_url = request.build_absolute_uri(f'/share/{share_token_str}/')
-        invalidate_user_folder_cache(request.user.id)
-
-    else:
-        try:
-            media_file = MediaFile.objects.get(id=item_id, owner=request.user)
-        except MediaFile.DoesNotExist:
-            return JsonResponse({'error': 'File not found.'}, status=404)
-
-        if not media_file.share_token:
-            media_file.share_token = uuid.uuid4()
-        media_file.share_mode = share_mode
-        media_file.is_shared = is_shared
-        media_file.save()
-
-        share_token_str = str(media_file.share_token)
-        share_url = request.build_absolute_uri(f'/share/{share_token_str}/')
-
-    return JsonResponse({
-        'success': True,
-        'share_mode': share_mode,
-        'is_shared': is_shared,
-        'share_token': share_token_str,
-        'share_url': share_url
-    })
+    data['share_mode'] = 'link' if is_shared else 'private'
+    return update_share_settings(request, _custom_data=data)
 
 
 @login_required
 @require_http_methods(["POST"])
-def update_share_settings(request):
+def update_share_settings(request, _custom_data=None):
     """
     Owner API to update share mode ('private', 'restricted', 'link')
     and set allowed recipient users.
     """
-    data = get_request_data(request)
+    data = _custom_data if _custom_data is not None else get_request_data(request)
     item_type = data.get('type')  # 'file' or 'folder'
     item_id = data.get('id')
     share_mode = data.get('share_mode', 'private')  # 'private', 'restricted', 'link'
@@ -802,16 +805,6 @@ def get_shared_contents(request, share_token, subfolder_id=None):
         if not user_has_share_access_to_file(request.user, shared_file):
             return JsonResponse({'error': 'Access Denied: This item is not shared with your account.'}, status=403)
 
-        def thumb_url(mf):
-            return request.build_absolute_uri(mf.thumbnail.url) if mf.thumbnail else None
-
-        def file_icon(mime):
-            if mime and mime.startswith('image/'): return 'image'
-            if mime and mime.startswith('video/'): return 'video'
-            if mime and mime.startswith('audio/'): return 'audio'
-            if mime == 'application/pdf': return 'pdf'
-            return 'file'
-
         return JsonResponse({
             'success': True,
             'item_type': 'file',
@@ -823,8 +816,8 @@ def get_shared_contents(request, share_token, subfolder_id=None):
                 'filename': shared_file.filename,
                 'file_size': shared_file.file_size,
                 'mime_type': shared_file.mime_type,
-                'icon_type': file_icon(shared_file.mime_type),
-                'thumbnail_url': thumb_url(shared_file),
+                'icon_type': get_file_icon(shared_file.mime_type),
+                'thumbnail_url': build_thumb_url(request, shared_file),
                 'stream_url': f'/stream/{shared_file.id}/',
                 'created_at': shared_file.created_at.isoformat(),
             }]
@@ -867,16 +860,6 @@ def get_shared_contents(request, share_token, subfolder_id=None):
     subfolders = Folder.objects.filter(parent=target_folder).annotate(file_count=Count('files')).order_by('name')
     files = MediaFile.objects.filter(folder=target_folder).order_by('-created_at')
 
-    def thumb_url(mf):
-        return request.build_absolute_uri(mf.thumbnail.url) if mf.thumbnail else None
-
-    def file_icon(mime):
-        if mime and mime.startswith('image/'): return 'image'
-        if mime and mime.startswith('video/'): return 'video'
-        if mime and mime.startswith('audio/'): return 'audio'
-        if mime == 'application/pdf': return 'pdf'
-        return 'file'
-
     return JsonResponse({
         'success': True,
         'item_type': 'folder',
@@ -898,8 +881,8 @@ def get_shared_contents(request, share_token, subfolder_id=None):
                 'filename': mf.filename,
                 'file_size': mf.file_size,
                 'mime_type': mf.mime_type,
-                'icon_type': file_icon(mf.mime_type),
-                'thumbnail_url': thumb_url(mf),
+                'icon_type': get_file_icon(mf.mime_type),
+                'thumbnail_url': build_thumb_url(request, mf),
                 'stream_url': f'/stream/{mf.id}/',
                 'created_at': mf.created_at.isoformat(),
             }

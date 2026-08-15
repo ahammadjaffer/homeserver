@@ -202,11 +202,12 @@ def upload_single_file(request):
     thumb_root = os.path.join(media_root, '.thumbnails')
 
     try:
-        category = get_category(uploaded_file.name)
+        safe_name = os.path.basename(uploaded_file.name)
+        category = get_category(safe_name)
         target_dir = os.path.join(media_root, category)
         os.makedirs(target_dir, exist_ok=True)
         
-        save_path = os.path.join(target_dir, uploaded_file.name)
+        save_path = os.path.join(target_dir, safe_name)
 
         # Save stream chunks
         with open(save_path, 'wb+') as destination:
@@ -214,14 +215,14 @@ def upload_single_file(request):
                 destination.write(chunk)
 
         # Create MediaFile DB record for multi-user isolation
-        mime_type, _ = mimetypes.guess_type(uploaded_file.name)
+        mime_type, _ = mimetypes.guess_type(safe_name)
         if not mime_type:
             mime_type = uploaded_file.content_type or 'application/octet-stream'
 
         media_file = MediaFile.objects.create(
             owner=request.user,
             file=save_path,
-            filename=uploaded_file.name,
+            filename=safe_name,
             file_size=uploaded_file.size,
             mime_type=mime_type
         )
@@ -230,7 +231,7 @@ def upload_single_file(request):
         generate_image_thumbnail(media_file.id)
 
         # Generate thumbnail if image for static serverapp rendering
-        ext = os.path.splitext(uploaded_file.name)[1].lower()
+        ext = os.path.splitext(safe_name)[1].lower()
 
         # 1. If MKV or HEIC, enqueue conversion task in background
         if ext in ['.mkv', '.heic', '.heif']:
