@@ -2,8 +2,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Drive SPA Root
-    path('', views.drive_view, name='list_images'),
+    # Public Landing Page & Drive SPA Root
+    path('', views.landing_view, name='landing'),
+    path('drive/', views.drive_view, name='list_images'),
 
     # Auth Routes
     path('signup/', views.signup_view, name='signup'),

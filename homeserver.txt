@@ -1,0 +1,130 @@
+================================================================================
+           HOME MEDIA SERVER SETUP & INSTALLATION GUIDE
+================================================================================
+Hardware Platform : Acer Nitro 5 (Intel i5 / 8 GB RAM / NVIDIA GTX 1080)
+Operating System  : Windows 11
+Application Stack : Django + Waitress WSGI + Nginx Reverse Proxy
+Project Directory : D:\projects\homeserver\homeserver\
+================================================================================
+
+
+--------------------------------------------------------------------------------
+1. REQUIRED PYTHON LIBRARIES & DEPENDENCIES
+--------------------------------------------------------------------------------
+Ensure your virtual environment (venv) is active before installing these packages.
+
+Core Server Libraries:
+  - django             : Python Web Framework
+  - waitress           : Pure-Python production WSGI server for Windows
+  - python-dotenv      : Loads environment variables from .env into Python
+  - python -m pip install huey pillow pillow-heif
+  - python -m pip install hupper
+
+Commands to install inside virtual environment:
+  cd /d "D:\projects\homeserver\homeserver"
+  .\venv\Scripts\activate.bat
+  python -m pip install django waitress python-dotenv
+
+Verify installation:
+  python -c "import waitress, dotenv; print('Dependencies OK')"
+
+
+--------------------------------------------------------------------------------
+2. SETUP & STEPS FOLLOWED
+--------------------------------------------------------------------------------
+
+[ STEP A: Django & Waitress Configuration ]
+  1. Updated `run.py` in the project root to explicitly load `.env` variables 
+     and launch Waitress.
+  2. Configured Waitress settings in `run.py`:
+     - host: '127.0.0.1' (Internal binding for Nginx)
+     - port: 8000
+     - threads: 8
+     - max_request_body_size: 10737418240 (10 GB upload limit)
+
+[ STEP B: Nginx Installation & Setup ]
+  1. Downloaded Nginx for Windows (Mainline/Stable) from nginx.org.
+  2. Extracted files directly to `C:\nginx\` (ensuring `C:\nginx\nginx.exe` exists).
+  3. Replaced contents of `C:\nginx\conf\nginx.conf` with optimized configuration:
+     - Enabled zero-copy file streaming (`sendfile on`).
+     - Set client body upload limit to 10000M.
+     - Added direct static/media aliases pointing to:
+       * Media : D:/projects/homeserver/homeserver/media/
+       * Static: D:/projects/homeserver/homeserver/staticfiles/
+     - Configured reverse proxy (`proxy_pass http://127.0.0.1:8000`) for non-static routes.
+
+[ STEP C: Windows Defender Firewall Configuration ]
+  1. Opened Windows Defender Firewall with Advanced Security (`wf.msc`).
+  2. Created a New Inbound Rule:
+     - Rule Type    : Port
+     - Protocol     : TCP
+     - Local Port   : 80
+     - Action       : Allow the connection
+     - Profile      : Private
+     - Name         : Nginx Home Server (Port 80)
+
+[ STEP E: Media Manager & Granular Sharing Architecture ]
+  1. Built Single Page Application (SPA) Media Manager (`media_manager` app).
+  2. Database Models:
+     - Folder: name, parent (self-ref for recursive subtrees), owner, share_mode ('private'|'restricted'|'link'), shared_users (m2m), share_token (UUID4).
+     - MediaFile: filename, file_size, mime_type, folder, owner, share_mode ('private'|'restricted'|'link'), shared_users (m2m), share_token (UUID4).
+  3. Security Authorization & Sharing Features:
+     - Three Access Modes: Private, Restricted to Selected Accounts, Anyone with Link.
+     - Live User Search & Multi-Select UI: Autocomplete endpoint (`/api/users/search/?q=...`) with recipient user badges.
+     - Subtree Boundary Validation (`is_descendant_of`): Prevents directory traversal outside shared directory scope.
+     - Protected Streaming: Nginx `X-Accel-Redirect` streaming checks account authorization before delivering media bytes.
+     - Mobile Responsiveness: Off-canvas drawer menu (`☰`) and fixed floating action upload button (`+` FAB).
+
+
+--------------------------------------------------------------------------------
+3. DAILY OPERATIONAL COMMANDS
+--------------------------------------------------------------------------------
+
+[ Starting the Server Stack ]
+  0. Terminal 1 (huey worker):
+     cd D:\projects\homeserver\homeserver
+     .\venv\Scripts\activate.bat
+     python manage.py run_huey
+
+  1. Terminal 2 (Waitress Server):
+     cd D:\projects\homeserver\homeserver
+     .\venv\Scripts\activate.bat
+     python run.py
+
+  2. Terminal 3 (Nginx Server):
+     cd C:\nginx
+     start nginx
+
+[ Useful Nginx Management Commands ]
+  - Reload Nginx configuration : nginx -s reload
+  - Stop Nginx gracefully       : nginx -s quit
+  - Force kill all Nginx processes: taskkill /f /im nginx.exe
+
+[ Client Access ]
+  Devices on your home Wi-Fi can access the server via your laptop's IP address:
+  http://192.168.x.x
+================================================================================
+
+
+How to Run the Updated Stack
+To run your complete server stack with background conversion enabled, open 3 terminal windows:
+
+Terminal 1: Huey Background Worker (Processes conversion queue):
+
+PowerShell
+cd D:\projects\homeserver\homeserver
+.\venv\Scripts\activate
+python manage.py run_huey
+
+Terminal 2: Waitress Server (Handles web requests):
+PowerShell
+cd D:\projects\homeserver\homeserver
+.\venv\Scripts\activate
+python run.py
+
+Terminal 3: Nginx (High-performance static/media streaming):
+PowerShell
+cd C:\nginx
+start nginx
+
+python manage.py collectstatic
