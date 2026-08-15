@@ -222,8 +222,9 @@ __marimo__/
 .images
 images/
 
-setup.txt
-homeserver.txt
+# setup.txt
+# homeserver.txt
+Todo.txt
 
 .media_storage
 media_storage/

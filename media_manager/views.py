@@ -426,7 +426,12 @@ def stream_media(request, file_id):
     return response
 
 
-# --- DRIVE VIEW (SPA Shell) ---
+# --- LANDING PAGE & DRIVE VIEW (SPA Shell) ---
+
+def landing_view(request):
+    """Renders the NitroStream public landing page."""
+    return render(request, 'media_manager/landing.html')
+
 
 @login_required
 def drive_view(request):

@@ -1,0 +1,118 @@
+⚙️ Hardware & Prerequisites
+OS: Windows 10/11
+
+Python: 3.11+
+
+FFmpeg: Installed and added to System PATH (or explicitly path-bound in tasks.py)
+
+Nginx: Installed (e.g., at C:\nginx)
+
+🚀 Quick Start & Installation
+1. Clone the Repository
+PowerShell
+git clone [https://github.com/your-username/NitroStream.git](https://github.com/your-username/NitroStream.git)
+cd NitroStream
+2. Set Up Virtual Environment & Dependencies
+PowerShell
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+.\venv\Scripts\activate
+
+# Install required python packages
+python -m pip install django waitress hupper huey pillow pillow-heif python-dotenv redis
+3. Run Database Migrations & Collect Static Assets
+PowerShell
+python manage.py makemigrations
+python manage.py migrate
+python manage.py collectstatic --noinput
+
+🔒 Key System Capabilities:
+- Google Drive / MEGA Style File Manager with folder tree sidebar, breadcrumbs, search, and batch drag-and-drop uploads.
+- Granular User Sharing: Share files or folders privately, with selected accounts (via username search & multi-select chips), or via link.
+- Mobile Responsive drawer menu & floating action upload button (`+` FAB).
+- Asynchronous HEIC photo conversion and hardware-accelerated MKV to MP4 video conversion via Huey & FFmpeg.
+
+🏃 Running the Full Server Stack
+To run the complete NitroStream environment, open 3 terminal windows:
+
+Terminal 1: Background Huey Worker
+Processes .heic and .mkv file conversions asynchronously:
+
+PowerShell
+.\venv\Scripts\activate
+python manage.py run_huey
+
+Terminal 2: Waitress WSGI Application Server
+Runs the web application with hot-reloading enabled:
+
+PowerShell
+.\venv\Scripts\activate
+python run.py
+
+Terminal 3: Nginx Web Server
+Serves static/media assets and proxies request traffic:
+
+PowerShell
+cd C:\nginx
+start nginx
+
+Once all processes are running, open your web browser and navigate to:
+
+Plaintext
+http://localhost/
+🧪 Continuous Integration & Code Quality
+This project uses GitHub Actions and SonarQube to monitor code quality, security vulnerabilities, and code maintainability.
+
+Branching Strategy: Development work takes place on the dev branch. Pull Requests (PRs) from dev to main trigger automated SonarQube scans via .github/workflows/sonarqube.yml.
+
+📝 License
+Distributed under the MIT License. See LICENSE for more information.
+
+
+
+🌐 Cloudflare Tunnel (Internet Access)
+4. Download & Install Cloudflared
+
+1. Download the Windows AMD64 executable from:
+   https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+
+2. Rename the downloaded file to:
+   cloudflared.exe
+
+3. Move it to a convenient folder, for example:
+   C:\cloudflared\
+
+4. Open Command Prompt and verify the installation:
+
+PowerShell
+cd C:\cloudflared
+cloudflared.exe --version
+
+5. Start a Quick Tunnel
+
+Leave Waitress, Huey, and Nginx running, then open a new Command Prompt:
+
+PowerShell
+cd C:\cloudflared
+cloudflared.exe tunnel --url http://127.0.0.1
+
+6. Cloudflare will display a temporary URL similar to:
+
+https://your-random-name.trycloudflare.com
+
+Open this URL from any device connected to the Internet to access your application.
+
+7. Django Configuration
+
+For Quick Tunnel testing, update settings.py:
+
+ALLOWED_HOSTS = ["*"]
+
+or add the generated trycloudflare.com hostname to ALLOWED_HOSTS.
+
+If using Nginx as the reverse proxy, point Cloudflare Tunnel to:
+http://127.0.0.1
+
+Do not point it directly to Waitress when Nginx is already serving your application.
