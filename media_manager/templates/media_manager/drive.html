@@ -211,6 +211,36 @@
         </div>
     </div>
 
+    <!-- SHARE MODAL -->
+    <div class="modal-overlay" id="share-modal">
+        <div class="modal-box">
+            <div class="modal-title" id="share-modal-title">Share Item</div>
+            <div style="font-size:0.84rem; color:var(--text-secondary);" id="share-modal-desc">
+                Grant authenticated users access via share link.
+            </div>
+            
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); margin:4px 0;">
+                <div>
+                    <div style="font-size:0.875rem; font-weight:600;" id="share-toggle-label">Sharing Disabled</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted);" id="share-toggle-sub">Only you have access</div>
+                </div>
+                <button class="modal-btn confirm" id="btn-toggle-share" onclick="onShareButtonClick()" style="padding:6px 14px; font-size:0.8rem;">Turn ON</button>
+            </div>
+
+            <div id="share-url-container" style="display:none; flex-direction:column; gap:8px;">
+                <div style="font-size:0.78rem; color:var(--text-muted);">Share Link (Requires NitroStream Login):</div>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="share-url-input" class="modal-input" readonly style="font-size:0.8rem; background:var(--bg-main);">
+                    <button class="modal-btn confirm" onclick="copyShareUrl()" style="flex-shrink:0;">Copy</button>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn cancel" data-modal-close="share-modal">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- FLOATING ACTION BUTTON (FAB) FOR MOBILE & QUICK UPLOADS -->
     <button class="fab-upload-btn" onclick="triggerFileInput()" title="Upload to current folder">
         <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>

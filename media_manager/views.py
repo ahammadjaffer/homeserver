@@ -273,22 +273,61 @@ def upload_media_file(request):
     }, status=201)
 
 
+# --- SECURITY HELPERS FOR SHARING & ACCESS CONTROL ---
+
+def is_descendant_of(folder, ancestor_folder):
+    """
+    Recursively verifies if folder is equal to or a child/grandchild of ancestor_folder.
+    Prevents directory traversal / unauthorized access outside shared folder subtrees.
+    """
+    if not folder or not ancestor_folder:
+        return False
+    node = folder
+    while node:
+        if node.id == ancestor_folder.id:
+            return True
+        node = node.parent
+    return False
+
+
+def user_has_share_access_to_file(user, media_file):
+    """
+    Checks if a user has access to a MediaFile.
+    Access granted if:
+    1. User is the owner.
+    2. File itself is explicitly shared (is_shared=True).
+    3. Any folder in the file's parent chain has is_shared=True.
+    """
+    if media_file.owner == user:
+        return True
+    if media_file.is_shared:
+        return True
+    node = media_file.folder
+    while node:
+        if node.is_shared:
+            return True
+        node = node.parent
+    return False
+
+
 @login_required
 @require_http_methods(["GET", "HEAD"])
 def stream_media(request, file_id):
     """
     Secure media streaming endpoint using Nginx X-Accel-Redirect.
-    Authenticates user ownership, then offloads media delivery & byte-range seeking to Nginx.
+    Verifies user ownership or valid active share authorization before offloading to Nginx sendfile.
     """
     try:
-        media_file = MediaFile.objects.get(id=file_id, owner=request.user)
+        media_file = MediaFile.objects.get(id=file_id)
     except MediaFile.DoesNotExist:
+        raise Http404("Media file not found.")
+
+    if not user_has_share_access_to_file(request.user, media_file):
         raise Http404("Media file not found or access denied.")
 
     if not media_file.file:
         raise Http404("File content missing.")
 
-    # Format relative path for Nginx internal location mapping
     relative_path = str(media_file.file.name).replace('\\', '/').lstrip('/')
     x_accel_path = f"/protected_media/{relative_path}"
 
@@ -296,6 +335,7 @@ def stream_media(request, file_id):
     response['X-Accel-Redirect'] = x_accel_path
     response['Content-Disposition'] = f'inline; filename="{media_file.filename}"'
     return response
+
 
 
 # --- DRIVE VIEW (SPA Shell) ---
@@ -474,3 +514,249 @@ def move_media_file(request, file_id):
     invalidate_user_folder_cache(request.user.id)
 
     return JsonResponse({'success': True})
+
+
+# --- SECURITY HARDENED SHARING ENDPOINTS ---
+
+@login_required
+@require_http_methods(["POST"])
+def toggle_share_status(request):
+    """
+    Owner API to toggle public/shared access ON or OFF for a file or folder.
+    Strictly verifies item ownership.
+    """
+    data = get_request_data(request)
+    item_type = data.get('type')  # 'file' or 'folder'
+    item_id = data.get('id')
+    is_shared = bool(data.get('is_shared', False))
+
+    if item_type not in ('file', 'folder') or not item_id:
+        return JsonResponse({'error': 'Invalid request parameters.'}, status=400)
+
+    import uuid
+    share_url = ''
+    share_token_str = ''
+
+    if item_type == 'folder':
+        try:
+            folder = Folder.objects.get(id=item_id, owner=request.user)
+        except Folder.DoesNotExist:
+            return JsonResponse({'error': 'Folder not found.'}, status=404)
+
+        if not folder.share_token:
+            folder.share_token = uuid.uuid4()
+        folder.is_shared = is_shared
+        folder.save(update_fields=['is_shared', 'share_token'])
+
+        share_token_str = str(folder.share_token)
+        share_url = request.build_absolute_uri(f'/share/{share_token_str}/')
+        invalidate_user_folder_cache(request.user.id)
+
+    else:
+        try:
+            media_file = MediaFile.objects.get(id=item_id, owner=request.user)
+        except MediaFile.DoesNotExist:
+            return JsonResponse({'error': 'File not found.'}, status=404)
+
+        if not media_file.share_token:
+            media_file.share_token = uuid.uuid4()
+        media_file.is_shared = is_shared
+        media_file.save(update_fields=['is_shared', 'share_token'])
+
+        share_token_str = str(media_file.share_token)
+        share_url = request.build_absolute_uri(f'/share/{share_token_str}/')
+
+    return JsonResponse({
+        'success': True,
+        'is_shared': is_shared,
+        'share_token': share_token_str,
+        'share_url': share_url
+    })
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_share_status(request):
+    """
+    Owner API to fetch current share status & URL for a file or folder.
+    """
+    item_type = request.GET.get('type')
+    item_id = request.GET.get('id')
+
+    if item_type == 'folder':
+        try:
+            item = Folder.objects.get(id=item_id, owner=request.user)
+        except Folder.DoesNotExist:
+            return JsonResponse({'error': 'Folder not found.'}, status=404)
+    elif item_type == 'file':
+        try:
+            item = MediaFile.objects.get(id=item_id, owner=request.user)
+        except MediaFile.DoesNotExist:
+            return JsonResponse({'error': 'File not found.'}, status=404)
+    else:
+        return JsonResponse({'error': 'Invalid request parameters.'}, status=400)
+
+    import uuid
+    if not item.share_token:
+        item.share_token = uuid.uuid4()
+        item.save(update_fields=['share_token'])
+
+    token_str = str(item.share_token)
+    share_url = request.build_absolute_uri(f'/share/{token_str}/')
+
+    return JsonResponse({
+        'success': True,
+        'is_shared': item.is_shared,
+        'share_token': token_str,
+        'share_url': share_url,
+        'item_name': item.name if item_type == 'folder' else item.filename
+    })
+
+
+@login_required
+def shared_item_view(request, share_token):
+    """
+    Renders recipient SPA page for a shared file or folder link.
+    Requires authenticated user on NitroStream.
+    """
+    # 1. Check if token belongs to an active shared Folder
+    try:
+        shared_folder = Folder.objects.get(share_token=share_token, is_shared=True)
+        return render(request, 'media_manager/shared_view.html', {
+            'share_token': str(share_token),
+            'item_type': 'folder',
+            'shared_name': shared_folder.name,
+            'owner_name': shared_folder.owner.username,
+        })
+    except Folder.DoesNotExist:
+        pass
+
+    # 2. Check if token belongs to an active shared MediaFile
+    try:
+        shared_file = MediaFile.objects.get(share_token=share_token, is_shared=True)
+        return render(request, 'media_manager/shared_view.html', {
+            'share_token': str(share_token),
+            'item_type': 'file',
+            'shared_name': shared_file.filename,
+            'owner_name': shared_file.owner.username,
+        })
+    except MediaFile.DoesNotExist:
+        pass
+
+    # Active share not found
+    return render(request, 'media_manager/shared_view.html', {
+        'error': 'This shared item does not exist or access has been disabled by the author.',
+    }, status=404)
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_shared_contents(request, share_token, subfolder_id=None):
+    """
+    API for recipients to fetch contents of a shared folder or subfolders within the shared subtree.
+    STRICT SECURITY MEASURE: Validates tree boundaries to prevent escaping shared folder scope.
+    """
+    # 1. If share_token is a single MediaFile
+    try:
+        shared_file = MediaFile.objects.get(share_token=share_token, is_shared=True)
+
+        def thumb_url(mf):
+            return request.build_absolute_uri(mf.thumbnail.url) if mf.thumbnail else None
+
+        def file_icon(mime):
+            if mime and mime.startswith('image/'): return 'image'
+            if mime and mime.startswith('video/'): return 'video'
+            if mime and mime.startswith('audio/'): return 'audio'
+            if mime == 'application/pdf': return 'pdf'
+            return 'file'
+
+        return JsonResponse({
+            'success': True,
+            'item_type': 'file',
+            'shared_root': {'name': shared_file.filename, 'owner': shared_file.owner.username},
+            'breadcrumbs': [{'id': None, 'name': shared_file.filename}],
+            'folders': [],
+            'files': [{
+                'id': shared_file.id,
+                'filename': shared_file.filename,
+                'file_size': shared_file.file_size,
+                'mime_type': shared_file.mime_type,
+                'icon_type': file_icon(shared_file.mime_type),
+                'thumbnail_url': thumb_url(shared_file),
+                'stream_url': f'/stream/{shared_file.id}/',
+                'created_at': shared_file.created_at.isoformat(),
+            }]
+        })
+    except MediaFile.DoesNotExist:
+        pass
+
+    # 2. Check if share_token is a shared Folder
+    try:
+        shared_root = Folder.objects.get(share_token=share_token, is_shared=True)
+    except Folder.DoesNotExist:
+        return JsonResponse({'error': 'Share link expired or invalid.'}, status=404)
+
+    target_folder = shared_root
+    if subfolder_id is not None:
+        try:
+            target_folder = Folder.objects.get(id=subfolder_id)
+        except Folder.DoesNotExist:
+            return JsonResponse({'error': 'Subfolder not found.'}, status=404)
+
+        # STRICT SECURITY BOUNDARY CHECK: Target folder MUST be a descendant of shared_root
+        if not is_descendant_of(target_folder, shared_root):
+            return JsonResponse({'error': 'Access denied: outside shared directory scope.'}, status=403)
+
+    # Build breadcrumb chain starting at shared_root (hiding parent folders above shared_root!)
+    chain = []
+    node = target_folder
+    while node:
+        chain.append({'id': node.id, 'name': node.name})
+        if node.id == shared_root.id:
+            break
+        node = node.parent
+    breadcrumbs = list(reversed(chain))
+
+    subfolders = Folder.objects.filter(parent=target_folder).annotate(file_count=Count('files')).order_by('name')
+    files = MediaFile.objects.filter(folder=target_folder).order_by('-created_at')
+
+    def thumb_url(mf):
+        return request.build_absolute_uri(mf.thumbnail.url) if mf.thumbnail else None
+
+    def file_icon(mime):
+        if mime and mime.startswith('image/'): return 'image'
+        if mime and mime.startswith('video/'): return 'video'
+        if mime and mime.startswith('audio/'): return 'audio'
+        if mime == 'application/pdf': return 'pdf'
+        return 'file'
+
+    return JsonResponse({
+        'success': True,
+        'item_type': 'folder',
+        'shared_root': {'name': shared_root.name, 'owner': shared_root.owner.username},
+        'breadcrumbs': breadcrumbs,
+        'folders': [
+            {
+                'id': f.id,
+                'name': f.name,
+                'parent_id': f.parent_id,
+                'file_count': f.file_count,
+                'created_at': f.created_at.isoformat(),
+            }
+            for f in subfolders
+        ],
+        'files': [
+            {
+                'id': mf.id,
+                'filename': mf.filename,
+                'file_size': mf.file_size,
+                'mime_type': mf.mime_type,
+                'icon_type': file_icon(mf.mime_type),
+                'thumbnail_url': thumb_url(mf),
+                'stream_url': f'/stream/{mf.id}/',
+                'created_at': mf.created_at.isoformat(),
+            }
+            for mf in files
+        ],
+    })
+

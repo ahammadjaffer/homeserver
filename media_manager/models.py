@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
@@ -24,6 +25,8 @@ class Folder(models.Model):
         blank=True,
         related_name='subfolders'
     )
+    is_shared = models.BooleanField(default=False)
+    share_token = models.UUIDField(default=uuid.uuid4, null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -54,6 +57,8 @@ class MediaFile(models.Model):
     file_size = models.BigIntegerField()
     mime_type = models.CharField(max_length=100)
     thumbnail = models.ImageField(upload_to='thumbnails/%Y/%m/%d/', null=True, blank=True)
+    is_shared = models.BooleanField(default=False)
+    share_token = models.UUIDField(default=uuid.uuid4, null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -61,3 +66,4 @@ class MediaFile(models.Model):
 
     def __str__(self):
         return self.filename
+

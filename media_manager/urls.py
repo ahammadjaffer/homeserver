@@ -28,4 +28,12 @@ urlpatterns = [
 
     # Streaming Route
     path('stream/<int:file_id>/', views.stream_media, name='stream_media'),
+
+    # Share Feature Routes
+    path('api/shares/toggle/', views.toggle_share_status, name='api_toggle_share'),
+    path('api/shares/status/', views.get_share_status, name='api_share_status'),
+    path('share/<uuid:share_token>/', views.shared_item_view, name='shared_item_view'),
+    path('api/shared/<uuid:share_token>/contents/', views.get_shared_contents, name='api_shared_contents_root'),
+    path('api/shared/<uuid:share_token>/contents/<int:subfolder_id>/', views.get_shared_contents, name='api_shared_contents_sub'),
 ]
+
