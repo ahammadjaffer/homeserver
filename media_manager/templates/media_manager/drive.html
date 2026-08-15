@@ -213,21 +213,54 @@
 
     <!-- SHARE MODAL -->
     <div class="modal-overlay" id="share-modal">
-        <div class="modal-box">
+        <div class="modal-box" style="max-width: 480px;">
             <div class="modal-title" id="share-modal-title">Share Item</div>
             <div style="font-size:0.84rem; color:var(--text-secondary);" id="share-modal-desc">
-                Grant authenticated users access via share link.
-            </div>
-            
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); margin:4px 0;">
-                <div>
-                    <div style="font-size:0.875rem; font-weight:600;" id="share-toggle-label">Sharing Disabled</div>
-                    <div style="font-size:0.75rem; color:var(--text-muted);" id="share-toggle-sub">Only you have access</div>
-                </div>
-                <button class="modal-btn confirm" id="btn-toggle-share" onclick="onShareButtonClick()" style="padding:6px 14px; font-size:0.8rem;">Turn ON</button>
+                Manage access settings for this item.
             </div>
 
-            <div id="share-url-container" style="display:none; flex-direction:column; gap:8px;">
+            <!-- Access Mode Options -->
+            <div class="share-mode-options">
+                <label class="share-mode-card" id="card-mode-private" onclick="selectShareMode('private')">
+                    <input type="radio" name="share_mode_radio" value="private" id="radio-mode-private">
+                    <div class="share-mode-info">
+                        <div class="share-mode-title">🔒 Private</div>
+                        <div class="share-mode-sub">Only you have access</div>
+                    </div>
+                </label>
+
+                <label class="share-mode-card" id="card-mode-restricted" onclick="selectShareMode('restricted')">
+                    <input type="radio" name="share_mode_radio" value="restricted" id="radio-mode-restricted">
+                    <div class="share-mode-info">
+                        <div class="share-mode-title">👥 Restricted (Selected Accounts)</div>
+                        <div class="share-mode-sub">Only specified NitroStream accounts can access</div>
+                    </div>
+                </label>
+
+                <label class="share-mode-card" id="card-mode-link" onclick="selectShareMode('link')">
+                    <input type="radio" name="share_mode_radio" value="link" id="radio-mode-link">
+                    <div class="share-mode-info">
+                        <div class="share-mode-title">🌐 Anyone with Link</div>
+                        <div class="share-mode-sub">Any logged-in NitroStream user with the link</div>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Restricted User Search & Multi-Select Chips -->
+            <div id="share-restricted-section" style="display:none; margin-top:8px;">
+                <div style="font-size:0.8rem; font-weight:600; color:var(--text-primary); margin-bottom:4px;">Shared with:</div>
+                <div class="user-chips-container" id="share-user-chips">
+                    <div style="font-size:0.75rem; color:var(--text-muted);" id="no-users-label">No users added yet.</div>
+                </div>
+
+                <div class="user-search-wrapper">
+                    <input type="text" id="share-user-search" class="modal-input" placeholder="Type username to add..." oninput="onUserSearchInput(this.value)" autocomplete="off">
+                    <div id="share-user-results" class="user-autocomplete-results"></div>
+                </div>
+            </div>
+
+            <!-- Share URL Link -->
+            <div id="share-url-container" style="display:none; flex-direction:column; gap:6px; margin-top:10px;">
                 <div style="font-size:0.78rem; color:var(--text-muted);">Share Link (Requires NitroStream Login):</div>
                 <div style="display:flex; gap:8px;">
                     <input type="text" id="share-url-input" class="modal-input" readonly style="font-size:0.8rem; background:var(--bg-main);">
@@ -236,7 +269,8 @@
             </div>
 
             <div class="modal-actions">
-                <button class="modal-btn cancel" data-modal-close="share-modal">Close</button>
+                <button class="modal-btn cancel" data-modal-close="share-modal">Cancel</button>
+                <button class="modal-btn confirm" onclick="saveShareSettings()">Save Settings</button>
             </div>
         </div>
     </div>
