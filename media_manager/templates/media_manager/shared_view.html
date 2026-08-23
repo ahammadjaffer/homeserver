@@ -237,12 +237,28 @@
                     html += `<div class="section-heading">Files</div><div class="file-grid">`;
                     filteredFiles.forEach(f => {
                         const ext = f.filename.split('.').pop().toUpperCase().slice(0, 5);
-                        const thumb = f.thumbnail_url
-                            ? `<img src="${f.thumbnail_url}" alt="${f.filename}" loading="lazy">`
-                            : `<div class="file-icon-wrap"><svg class="icon-file" viewBox="0 0 24 24" style="width:38px;height:38px"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg><span>${ext}</span></div>`;
+                        const isVideo = f.icon_type === 'video' || (f.mime_type && f.mime_type.startsWith('video/'));
+                        const hasPreview = Boolean(f.preview_url);
 
-                        html += `<div class="file-card" onclick="openSharedFile('${f.stream_url}', '${f.filename}', '${f.mime_type}')">
-                            <div class="card-thumb">${thumb}<span class="type-badge">${ext}</span></div>
+                        let thumbInner = '';
+                        if (f.thumbnail_url) {
+                            thumbInner += `<img class="thumb-img" src="${f.thumbnail_url}" alt="${f.filename}" loading="lazy">`;
+                        } else {
+                            thumbInner += `<div class="file-icon-wrap"><svg class="icon-file" viewBox="0 0 24 24" style="width:38px;height:38px"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg><span>${ext}</span></div>`;
+                        }
+
+                        if (isVideo && hasPreview) {
+                            thumbInner += `<img class="preview-img" alt="Preview" style="display:none;" loading="lazy">`;
+                        }
+
+                        const badgeIcon = isVideo ? `<svg class="badge-mini-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>` : '';
+                        const badgeClass = isVideo ? 'type-badge badge-video' : 'type-badge';
+
+                        html += `<div class="file-card ${isVideo ? 'video-card' : ''}" 
+                            data-is-video="${isVideo ? 'true' : 'false'}"
+                            data-preview-url="${f.preview_url || ''}"
+                            onclick="openSharedFile('${f.stream_url}', '${f.filename}', '${f.mime_type}')">
+                            <div class="card-thumb">${thumbInner}<span class="${badgeClass}">${badgeIcon}${ext}</span></div>
                             <div class="card-info">
                                 <div class="card-name" title="${f.filename}">${f.filename}</div>
                                 <div class="card-meta">${(f.file_size/1048576).toFixed(1)} MB</div>
@@ -271,6 +287,56 @@
             }
 
             area.innerHTML = html;
+        }
+
+        function initSharedVideoPreviews() {
+            const area = document.getElementById('shared-files-area');
+            if (!area) return;
+
+            area.addEventListener('mouseenter', e => {
+                const card = e.target.closest('.file-card[data-is-video="true"]');
+                if (!card) return;
+                const previewUrl = card.dataset.previewUrl;
+                if (!previewUrl) return;
+
+                const previewImg = card.querySelector('.preview-img');
+                const thumbImg = card.querySelector('.thumb-img');
+                if (!previewImg) return;
+
+                clearTimeout(card._hoverTimer);
+                card._hoverTimer = setTimeout(() => {
+                    card.classList.add('preview-loading');
+                    if (!previewImg.src || previewImg.src !== location.origin + previewUrl) {
+                        previewImg.src = previewUrl;
+                    }
+                    const show = () => {
+                        card.classList.remove('preview-loading');
+                        card.classList.add('preview-active');
+                        previewImg.style.display = 'block';
+                        if (thumbImg) thumbImg.style.opacity = '0';
+                    };
+                    if (previewImg.complete && previewImg.naturalWidth > 0) {
+                        show();
+                    } else {
+                        previewImg.onload = show;
+                        previewImg.onerror = () => {
+                            card.classList.remove('preview-loading', 'preview-active');
+                            previewImg.style.display = 'none';
+                        };
+                    }
+                }, 100);
+            }, true);
+
+            area.addEventListener('mouseleave', e => {
+                const card = e.target.closest('.file-card[data-is-video="true"]');
+                if (!card) return;
+                clearTimeout(card._hoverTimer);
+                card.classList.remove('preview-loading', 'preview-active');
+                const previewImg = card.querySelector('.preview-img');
+                const thumbImg = card.querySelector('.thumb-img');
+                if (previewImg) previewImg.style.display = 'none';
+                if (thumbImg) thumbImg.style.opacity = '1';
+            }, true);
         }
 
         function openSharedFile(streamUrl, filename, mimeType) {
@@ -331,6 +397,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            initSharedVideoPreviews();
             if (SharedState.shareToken) {
                 loadSharedFolder(null);
             }

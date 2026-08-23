@@ -75,6 +75,7 @@ class MediaFile(models.Model):
     file_size = models.BigIntegerField()
     mime_type = models.CharField(max_length=100)
     thumbnail = models.ImageField(upload_to='thumbnails/%Y/%m/%d/', null=True, blank=True)
+    hover_preview = models.ImageField(upload_to='previews/%Y/%m/%d/', null=True, blank=True)
     share_mode = models.CharField(max_length=20, choices=SHARE_MODE_CHOICES, default='private')
     shared_users = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name='shared_files')
     is_shared = models.BooleanField(default=False)

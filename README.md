@@ -20,8 +20,8 @@
 - **🛡️ Strict Subtree Security & Protected Streaming:** Tree-walking boundary validation (`is_descendant_of`) strictly prevents directory traversal outside shared folders. Media is streamed securely via Nginx `X-Accel-Redirect`.
 - **⚡ Zero-Delay Asynchronous Uploads:** Files upload directly to any destination directory with real-time drag-and-drop batch upload support.
 - **🔄 Automated HEIC-to-JPG Conversion:** Converts iPhone `.heic`/`.heif` photos into web-compatible `.jpg` files using Pillow and `pillow-heif` in the background.
-- **🎥 Hardware-Accelerated Video Encoding:** Automatically converts heavy `.mkv` files into web-optimized `.mp4` using **NVIDIA NVENC (GTX 1080)** GPU acceleration with a CPU fallback (`libx264`).
-- **🖼️ Smart Thumbnail Generation:** Automatically generates low-res image previews and video keyframe thumbnails.
+- **🎬 Video Scrubbing Strips (Hover Previews):** Automatically generates low-bitrate animated WebP preview strips via FFmpeg (with NVIDIA NVENC/CUDA hardware acceleration fallback). Hovering over any video card in the Drive UI plays an instant looping preview without loading the full video stream.
+- **🖼️ Smart Thumbnail Generation:** Automatically generates crisp poster thumbnails from video keyframes and image previews.
 - **⚡ Hot-Reload Enabled WSGI:** Uses `Waitress` wrapped with `hupper` for rapid development without restarting the app manually on code changes.
 - **🛡️ Secure Local Reverse Proxy:** Nginx handles static file serving, large media streaming, and client connections while proxying API requests to Waitress.
 

@@ -183,16 +183,32 @@ function renderFolderCard(f) {
 
 function renderFileCard(f) {
   const ext = f.filename.split('.').pop().toUpperCase().slice(0, 5);
-  const thumb = f.thumbnail_url
-    ? `<img src="${f.thumbnail_url}" alt="${escAttr(f.filename)}" loading="lazy">`
-    : `<div class="file-icon-wrap">${fileIconSvg(f.icon_type)}<span>${ext}</span></div>`;
+  const isVideo = f.icon_type === 'video' || (f.mime_type && f.mime_type.startsWith('video/'));
+  const hasPreview = Boolean(f.preview_url);
 
-  return `<div class="file-card"
+  let thumbInner = '';
+  if (f.thumbnail_url) {
+    thumbInner += `<img class="thumb-img" src="${f.thumbnail_url}" alt="${escAttr(f.filename)}" loading="lazy">`;
+  } else {
+    thumbInner += `<div class="file-icon-wrap">${fileIconSvg(f.icon_type)}<span>${ext}</span></div>`;
+  }
+
+  if (isVideo && hasPreview) {
+    thumbInner += `<img class="preview-img" alt="Preview" style="display:none;" loading="lazy">`;
+  }
+
+  const badgeIcon = isVideo ? `<svg class="badge-mini-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>` : '';
+  const badgeClass = isVideo ? 'type-badge badge-video' : 'type-badge';
+
+  return `<div class="file-card ${isVideo ? 'video-card' : ''}"
+      data-file-id="${f.id}"
+      data-is-video="${isVideo ? 'true' : 'false'}"
+      data-preview-url="${escAttr(f.preview_url || '')}"
       onclick="handleFileClick(event,${f.id},'${escAttr(f.filename)}','${escAttr(f.mime_type)}','${escAttr(f.stream_url)}')"
       oncontextmenu="showContextMenu(event,'file',${f.id},'${escAttr(f.filename)}')">
     <div class="card-thumb">
-      ${thumb}
-      <span class="type-badge">${ext}</span>
+      ${thumbInner}
+      <span class="${badgeClass}">${badgeIcon}${ext}</span>
     </div>
     <div class="card-info">
       <div class="card-name" title="${escAttr(f.filename)}">${esc(f.filename)}</div>
@@ -902,11 +918,88 @@ document.addEventListener('click', e => {
 function esc(s)     { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function escAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+// ─── VIDEO HOVER PREVIEW (SCRUBBING STRIP) ─────────────────────────────────
+function initVideoPreviewListeners() {
+  const area = document.getElementById('files-area');
+  if (!area) return;
+
+  area.addEventListener('mouseenter', e => {
+    const card = e.target.closest('.file-card[data-is-video="true"]');
+    if (card) startVideoHoverPreview(card);
+  }, true);
+
+  area.addEventListener('mouseleave', e => {
+    const card = e.target.closest('.file-card[data-is-video="true"]');
+    if (card) stopVideoHoverPreview(card);
+  }, true);
+}
+
+function startVideoHoverPreview(card) {
+  const previewUrl = card.dataset.previewUrl;
+  if (!previewUrl) return;
+
+  const previewImg = card.querySelector('.preview-img');
+  const thumbImg = card.querySelector('.thumb-img');
+  const iconWrap = card.querySelector('.file-icon-wrap');
+  if (!previewImg) return;
+
+  // Short debounce (100ms) to ensure smooth browsing without unnecessary resource usage
+  clearTimeout(card._hoverTimer);
+  card._hoverTimer = setTimeout(() => {
+    card.classList.add('preview-loading');
+
+    const fullUrl = previewUrl.startsWith('http') ? previewUrl : (location.origin + previewUrl);
+    if (!previewImg.src || previewImg.src !== fullUrl) {
+      previewImg.src = previewUrl;
+    }
+
+    const showPreview = () => {
+      card.classList.remove('preview-loading');
+      card.classList.add('preview-active');
+      previewImg.style.display = 'block';
+      if (thumbImg) thumbImg.style.opacity = '0';
+      if (iconWrap) iconWrap.style.display = 'none';
+    };
+
+    if (previewImg.complete && previewImg.naturalWidth > 0) {
+      showPreview();
+    } else {
+      previewImg.onload = showPreview;
+      previewImg.onerror = () => {
+        card.classList.remove('preview-loading', 'preview-active');
+        previewImg.style.display = 'none';
+      };
+    }
+  }, 100);
+}
+
+function stopVideoHoverPreview(card) {
+  clearTimeout(card._hoverTimer);
+  card.classList.remove('preview-loading', 'preview-active');
+
+  const previewImg = card.querySelector('.preview-img');
+  const thumbImg = card.querySelector('.thumb-img');
+  const iconWrap = card.querySelector('.file-icon-wrap');
+
+  if (previewImg) {
+    previewImg.style.display = 'none';
+  }
+  if (thumbImg) {
+    thumbImg.style.opacity = '1';
+  }
+  if (iconWrap) {
+    iconWrap.style.display = 'flex';
+  }
+}
+
 // ─── INIT ────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   // Set initial view mode buttons
   document.getElementById('btn-grid')?.classList.toggle('active', State.viewMode === 'grid');
   document.getElementById('btn-list')?.classList.toggle('active', State.viewMode === 'list');
+
+  // Initialize Video Hover Previews
+  initVideoPreviewListeners();
 
   // Load root folder and sidebar tree
   await Promise.all([loadFolder(null), loadSidebarTree()]);

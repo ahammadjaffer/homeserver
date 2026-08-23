@@ -15,7 +15,7 @@ from django.conf import settings
 from .forms import SignUpForm, LoginForm
 from .models import Folder, MediaFile
 from .signals import get_folder_cache_key, invalidate_user_folder_cache
-from .tasks import generate_image_thumbnail
+from .tasks import generate_image_thumbnail, generate_video_preview
 
 
 # Module-level helper functions for UI serialization
@@ -30,6 +30,12 @@ def get_file_icon(mime):
 def build_thumb_url(request, media_file):
     if media_file.thumbnail:
         return request.build_absolute_uri(media_file.thumbnail.url)
+    return None
+
+
+def build_preview_url(request, media_file):
+    if media_file.hover_preview:
+        return f"/preview/{media_file.id}/"
     return None
 
 
@@ -193,7 +199,7 @@ def delete_folder(request, folder_id):
     # 1. Gather all descendant folder IDs
     all_folder_ids = get_all_descendant_folder_ids(folder)
 
-    # 2. Delete physical files and thumbnails from disk for all contained MediaFiles
+    # 2. Delete physical files, thumbnails, and hover previews from disk for all contained MediaFiles
     media_files = MediaFile.objects.filter(folder_id__in=all_folder_ids, owner=request.user)
     for media_file in media_files:
         if media_file.file:
@@ -208,6 +214,13 @@ def delete_folder(request, folder_id):
                 thumb_path = media_file.thumbnail.path
                 if os.path.exists(thumb_path):
                     os.remove(thumb_path)
+            except Exception:
+                pass
+        if media_file.hover_preview:
+            try:
+                prev_path = media_file.hover_preview.path
+                if os.path.exists(prev_path):
+                    os.remove(prev_path)
             except Exception:
                 pass
 
@@ -275,7 +288,7 @@ def get_folder_tree(request):
 def upload_media_file(request):
     """
     AJAX endpoint to handle user file uploads.
-    Creates a MediaFile record ensuring owner=request.user and triggers thumbnail generation in background.
+    Creates a MediaFile record ensuring owner=request.user and triggers thumbnail/preview generation in background.
     """
     if 'file' not in request.FILES:
         return JsonResponse({'error': 'No file provided.'}, status=400)
@@ -304,8 +317,11 @@ def upload_media_file(request):
         mime_type=mime_type
     )
 
-    # Immediately trigger Huey background thumbnail generation
-    generate_image_thumbnail(media_file.id)
+    # Immediately trigger Huey background processing (image thumbnail or FFmpeg video preview)
+    if mime_type.startswith('image/'):
+        generate_image_thumbnail(media_file.id)
+    elif mime_type.startswith('video/'):
+        generate_video_preview(media_file.id)
 
     return JsonResponse({
         'success': True,
@@ -426,6 +442,33 @@ def stream_media(request, file_id):
     return response
 
 
+@login_required
+@require_http_methods(["GET", "HEAD"])
+def stream_preview(request, file_id):
+    """
+    Secure endpoint to stream animated WebP video hover preview strips.
+    Offloaded via Nginx X-Accel-Redirect with strict ownership / share access validation.
+    """
+    try:
+        media_file = MediaFile.objects.get(id=file_id)
+    except MediaFile.DoesNotExist:
+        raise Http404("Media file not found.")
+
+    if not user_has_share_access_to_file(request.user, media_file):
+        raise Http404("Preview not found or access denied.")
+
+    if not media_file.hover_preview or not media_file.hover_preview.name:
+        raise Http404("No preview generated.")
+
+    relative_path = str(media_file.hover_preview.name).replace('\\', '/').lstrip('/')
+    x_accel_path = f"/protected_media/{relative_path}"
+
+    response = HttpResponse(content_type='image/webp')
+    response['X-Accel-Redirect'] = x_accel_path
+    response['Cache-Control'] = 'public, max-age=86400'
+    return response
+
+
 # --- LANDING PAGE & DRIVE VIEW (SPA Shell) ---
 
 def landing_view(request):
@@ -505,6 +548,7 @@ def get_folder_contents(request, folder_id=None):
                 'mime_type': mf.mime_type,
                 'icon_type': get_file_icon(mf.mime_type),
                 'thumbnail_url': build_thumb_url(request, mf),
+                'preview_url': build_preview_url(request, mf),
                 'stream_url': f'/stream/{mf.id}/',
                 'created_at': mf.created_at.isoformat(),
             }
@@ -518,7 +562,7 @@ def get_folder_contents(request, folder_id=None):
 @login_required
 @require_http_methods(["POST", "DELETE"])
 def delete_media_file(request, file_id):
-    """Deletes a MediaFile record, its file on disk, and its thumbnail."""
+    """Deletes a MediaFile record, its file on disk, thumbnail, and hover preview."""
     try:
         media_file = MediaFile.objects.get(id=file_id, owner=request.user)
     except MediaFile.DoesNotExist:
@@ -539,6 +583,15 @@ def delete_media_file(request, file_id):
             thumb_path = media_file.thumbnail.path
             if os.path.exists(thumb_path):
                 os.remove(thumb_path)
+        except Exception:
+            pass
+
+    # Delete hover preview from disk
+    if media_file.hover_preview:
+        try:
+            prev_path = media_file.hover_preview.path
+            if os.path.exists(prev_path):
+                os.remove(prev_path)
         except Exception:
             pass
 
@@ -823,6 +876,7 @@ def get_shared_contents(request, share_token, subfolder_id=None):
                 'mime_type': shared_file.mime_type,
                 'icon_type': get_file_icon(shared_file.mime_type),
                 'thumbnail_url': build_thumb_url(request, shared_file),
+                'preview_url': build_preview_url(request, shared_file),
                 'stream_url': f'/stream/{shared_file.id}/',
                 'created_at': shared_file.created_at.isoformat(),
             }]
@@ -888,6 +942,7 @@ def get_shared_contents(request, share_token, subfolder_id=None):
                 'mime_type': mf.mime_type,
                 'icon_type': get_file_icon(mf.mime_type),
                 'thumbnail_url': build_thumb_url(request, mf),
+                'preview_url': build_preview_url(request, mf),
                 'stream_url': f'/stream/{mf.id}/',
                 'created_at': mf.created_at.isoformat(),
             }

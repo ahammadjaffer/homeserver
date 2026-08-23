@@ -74,6 +74,7 @@ Verify installation:
      - Subtree Boundary Validation (`is_descendant_of`): Prevents directory traversal outside shared directory scope.
      - Protected Streaming: Nginx `X-Accel-Redirect` streaming checks account authorization before delivering media bytes.
      - Mobile Responsiveness: Off-canvas drawer menu (`☰`) and fixed floating action upload button (`+` FAB).
+     - FFmpeg Video Scrubbing Strips: Low-bitrate animated WebP hover previews with NVIDIA NVENC/CUDA hardware acceleration fallback. Instant looping video preview on hover in the Drive UI.
 
 
 --------------------------------------------------------------------------------
