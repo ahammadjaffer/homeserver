@@ -389,9 +389,61 @@ svg { display: block; }
   width: 100%; height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, opacity 0.2s ease;
 }
-.file-card:hover .card-thumb img { transform: scale(1.04); }
+.card-thumb .preview-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--bg-deep);
+}
+.file-card:hover .card-thumb img.thumb-img { transform: scale(1.04); }
+
+.file-card.preview-loading .card-thumb::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), #ff6b35);
+  animation: previewLoadingPulse 0.8s infinite alternate;
+  z-index: 3;
+}
+
+@keyframes previewLoadingPulse {
+  0% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+.file-card.preview-active {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 16px rgba(229, 9, 20, 0.25) !important;
+}
+
+.file-card.preview-active .type-badge {
+  background: var(--accent) !important;
+  color: #fff !important;
+}
+
+.badge-video {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.badge-mini-play {
+  width: 9px;
+  height: 9px;
+  fill: currentColor;
+  display: inline-block;
+}
 
 /* File icon in thumb for non-image files */
 .file-icon-wrap {
@@ -419,6 +471,7 @@ svg { display: block; }
   text-transform: uppercase;
   color: #fff;
   letter-spacing: 0.04em;
+  z-index: 3;
 }
 
 /* Card info */

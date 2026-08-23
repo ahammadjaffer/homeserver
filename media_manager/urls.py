@@ -27,8 +27,9 @@ urlpatterns = [
     path('api/files/<int:file_id>/rename/', views.rename_media_file, name='api_rename_file'),
     path('api/files/<int:file_id>/move/', views.move_media_file, name='api_move_file'),
 
-    # Streaming Route
+    # Streaming & Hover Preview Routes
     path('stream/<int:file_id>/', views.stream_media, name='stream_media'),
+    path('preview/<int:file_id>/', views.stream_preview, name='stream_preview'),
 
     # Share Feature Routes
     path('api/users/search/', views.search_users, name='api_search_users'),
