@@ -39,5 +39,10 @@ urlpatterns = [
     path('share/<uuid:share_token>/', views.shared_item_view, name='shared_item_view'),
     path('api/shared/<uuid:share_token>/contents/', views.get_shared_contents, name='api_shared_contents_root'),
     path('api/shared/<uuid:share_token>/contents/<int:subfolder_id>/', views.get_shared_contents, name='api_shared_contents_sub'),
+
+    # Shared Drive (Shared With Me) Routes
+    path('api/shared-with-me/users/', views.get_shared_drive_users, name='api_shared_drive_users'),
+    path('api/shared-with-me/users/<int:user_id>/contents/', views.get_shared_drive_user_contents, name='api_shared_drive_user_contents'),
+    path('api/shared-with-me/folders/<int:folder_id>/contents/', views.get_shared_drive_folder_contents, name='api_shared_drive_folder_contents'),
 ]
 
