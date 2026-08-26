@@ -123,12 +123,19 @@
 
     <!-- LIGHTBOX -->
     <div class="lightbox" id="lightbox">
-        <button class="lightbox-close-btn" onclick="closeLightbox()">&times;</button>
-        <div class="lightbox-inner">
+        <button class="lightbox-close-btn" onclick="closeLightbox()" title="Close (Esc)">&times;</button>
+        <button class="lightbox-nav-btn lightbox-prev-btn" id="lightbox-prev-btn" onclick="sharedLightboxPrev()" title="Previous (Left Arrow / Swipe Right)">
+            <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
+        <button class="lightbox-nav-btn lightbox-next-btn" id="lightbox-next-btn" onclick="sharedLightboxNext()" title="Next (Right Arrow / Swipe Left)">
+            <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </button>
+        <div class="lightbox-inner" id="lightbox-inner">
             <img id="lightbox-img" src="" alt="Preview">
             <video id="lightbox-video" controls autoplay></video>
             <div class="lightbox-footer">
                 <span class="lightbox-caption" id="lightbox-caption"></span>
+                <span class="lightbox-counter" id="lightbox-counter"></span>
                 <a href="" download class="lightbox-download" id="lightbox-dl">
                     <svg viewBox="0 0 24 24"><path d="M12 16l-5-5h3V4h4v7h3l-5 5zm9 4H3v-2h18v2z"/></svg>
                     Download Original
@@ -339,40 +346,93 @@
             }, true);
         }
 
+        function getSharedLightboxMediaList() {
+            const q = SharedState.searchQuery.toLowerCase();
+            return SharedState.files.filter(f => {
+                const matches = !q || f.filename.toLowerCase().includes(q);
+                const isMedia = f.mime_type && (f.mime_type.startsWith('image/') || f.mime_type.startsWith('video/'));
+                return matches && isMedia;
+            });
+        }
+
         function openSharedFile(streamUrl, filename, mimeType) {
-            if (mimeType && mimeType.startsWith('image/')) {
-                openLightboxImg(streamUrl, filename);
-            } else if (mimeType && mimeType.startsWith('video/')) {
-                openLightboxVid(streamUrl, filename);
+            const list = getSharedLightboxMediaList();
+            SharedState.lightboxList = list;
+            let idx = list.findIndex(f => f.stream_url === streamUrl || f.filename === filename);
+            if (idx === -1) {
+                const fallback = SharedState.files.find(f => f.stream_url === streamUrl || f.filename === filename);
+                if (fallback) {
+                    SharedState.lightboxList = [fallback];
+                    idx = 0;
+                } else {
+                    SharedState.lightboxList = [{ filename, stream_url: streamUrl, mime_type: mimeType }];
+                    idx = 0;
+                }
+            }
+            showSharedLightboxItem(idx);
+        }
+
+        function showSharedLightboxItem(index) {
+            const list = SharedState.lightboxList;
+            if (!list || list.length === 0) return;
+
+            if (index < 0) index = list.length - 1;
+            if (index >= list.length) index = 0;
+
+            SharedState.lightboxIndex = index;
+            const file = list[index];
+
+            const lb = document.getElementById('lightbox');
+            const img = document.getElementById('lightbox-img');
+            const vid = document.getElementById('lightbox-video');
+            const dl  = document.getElementById('lightbox-dl');
+            const cap = document.getElementById('lightbox-caption');
+            const counter = document.getElementById('lightbox-counter');
+            const prevBtn = document.getElementById('lightbox-prev-btn');
+            const nextBtn = document.getElementById('lightbox-next-btn');
+
+            if (!lb) return;
+
+            const isVideo = file.mime_type && file.mime_type.startsWith('video/');
+            if (isVideo) {
+                if (img) { img.src = ''; img.style.display = 'none'; }
+                if (vid) {
+                    vid.src = file.stream_url;
+                    vid.style.display = 'block';
+                    vid.play().catch(() => {});
+                }
             } else {
-                window.open(streamUrl, '_blank');
+                if (vid) { vid.pause(); vid.src = ''; vid.style.display = 'none'; }
+                if (img) {
+                    img.src = file.stream_url;
+                    img.style.display = 'block';
+                }
+            }
+
+            if (cap) cap.textContent = file.filename;
+            if (dl) { dl.href = file.stream_url; dl.download = file.filename; }
+
+            if (counter) {
+                counter.textContent = list.length > 1 ? `${index + 1} / ${list.length}` : '';
+                counter.style.display = list.length > 1 ? 'inline-block' : 'none';
+            }
+
+            if (prevBtn) prevBtn.style.display = list.length > 1 ? 'flex' : 'none';
+            if (nextBtn) nextBtn.style.display = list.length > 1 ? 'flex' : 'none';
+
+            lb.classList.add('active');
+        }
+
+        function sharedLightboxPrev() {
+            if (SharedState.lightboxList && SharedState.lightboxList.length > 1) {
+                showSharedLightboxItem(SharedState.lightboxIndex - 1);
             }
         }
 
-        function openLightboxImg(src, filename) {
-            const lb = document.getElementById('lightbox');
-            const img = document.getElementById('lightbox-img');
-            const vid = document.getElementById('lightbox-video');
-            const dl  = document.getElementById('lightbox-dl');
-            const cap = document.getElementById('lightbox-caption');
-            if (vid) { vid.pause(); vid.src = ''; vid.style.display = 'none'; }
-            img.src = src; img.style.display = 'block';
-            if (cap) cap.textContent = filename;
-            if (dl) { dl.href = src; dl.download = filename; }
-            lb.classList.add('active');
-        }
-
-        function openLightboxVid(src, filename) {
-            const lb = document.getElementById('lightbox');
-            const img = document.getElementById('lightbox-img');
-            const vid = document.getElementById('lightbox-video');
-            const dl  = document.getElementById('lightbox-dl');
-            const cap = document.getElementById('lightbox-caption');
-            if (img) { img.src = ''; img.style.display = 'none'; }
-            vid.src = src; vid.style.display = 'block'; vid.play();
-            if (cap) cap.textContent = filename;
-            if (dl) { dl.href = src; dl.download = filename; }
-            lb.classList.add('active');
+        function sharedLightboxNext() {
+            if (SharedState.lightboxList && SharedState.lightboxList.length > 1) {
+                showSharedLightboxItem(SharedState.lightboxIndex + 1);
+            }
         }
 
         function closeLightbox() {
@@ -382,6 +442,49 @@
             if (lb)  lb.classList.remove('active');
             if (img) { img.src = ''; img.style.display = 'none'; }
             if (vid) { vid.pause(); vid.src = ''; vid.style.display = 'none'; }
+            SharedState.lightboxIndex = -1;
+            SharedState.lightboxList = [];
+        }
+
+        let _sharedTouchStartX = 0;
+        let _sharedTouchStartY = 0;
+        let _sharedTouchDeltaX = 0;
+        let _sharedTouchDeltaY = 0;
+        let _sharedIsSwiping = false;
+
+        function initSharedLightboxSwipe() {
+            const lb = document.getElementById('lightbox');
+            if (!lb) return;
+
+            lb.addEventListener('touchstart', e => {
+                if (!lb.classList.contains('active')) return;
+                if (e.touches.length === 1) {
+                    _sharedTouchStartX = e.touches[0].clientX;
+                    _sharedTouchStartY = e.touches[0].clientY;
+                    _sharedTouchDeltaX = 0;
+                    _sharedTouchDeltaY = 0;
+                    _sharedIsSwiping = true;
+                }
+            }, { passive: true });
+
+            lb.addEventListener('touchmove', e => {
+                if (!_sharedIsSwiping || e.touches.length !== 1) return;
+                _sharedTouchDeltaX = e.touches[0].clientX - _sharedTouchStartX;
+                _sharedTouchDeltaY = e.touches[0].clientY - _sharedTouchStartY;
+            }, { passive: true });
+
+            lb.addEventListener('touchend', () => {
+                if (!_sharedIsSwiping) return;
+                _sharedIsSwiping = false;
+
+                if (Math.abs(_sharedTouchDeltaX) > 40 && Math.abs(_sharedTouchDeltaX) > Math.abs(_sharedTouchDeltaY) * 1.1) {
+                    if (_sharedTouchDeltaX < 0) {
+                        sharedLightboxNext();
+                    } else {
+                        sharedLightboxPrev();
+                    }
+                }
+            }, { passive: true });
         }
 
         function setSharedView(mode) {
@@ -396,11 +499,34 @@
             renderSharedContents();
         }
 
+        document.addEventListener('keydown', e => {
+            const lb = document.getElementById('lightbox');
+            if (lb && lb.classList.contains('active')) {
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    sharedLightboxPrev();
+                    return;
+                }
+                if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    sharedLightboxNext();
+                    return;
+                }
+            }
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', () => {
             initSharedVideoPreviews();
+            initSharedLightboxSwipe();
             if (SharedState.shareToken) {
                 loadSharedFolder(null);
             }
+            document.getElementById('lightbox')?.addEventListener('click', e => {
+                if (e.target.id === 'lightbox') closeLightbox();
+            });
         });
     </script>
 </body>

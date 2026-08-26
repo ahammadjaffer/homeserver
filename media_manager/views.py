@@ -949,3 +949,178 @@ def get_shared_contents(request, share_token, subfolder_id=None):
             for mf in files
         ],
     })
+
+
+# --- SHARED DRIVE APIS (SHARED WITH ME) ---
+
+@login_required
+@require_http_methods(["GET"])
+def get_shared_drive_users(request):
+    """
+    Returns a list of users who have shared folders or files with request.user.
+    """
+    from django.contrib.auth import get_user_model
+    UserModel = get_user_model()
+
+    folder_sharer_ids = Folder.objects.filter(
+        shared_users=request.user
+    ).exclude(share_mode='private').values_list('owner_id', flat=True).distinct()
+
+    file_sharer_ids = MediaFile.objects.filter(
+        shared_users=request.user
+    ).exclude(share_mode='private').values_list('owner_id', flat=True).distinct()
+
+    sharer_ids = set(folder_sharer_ids).union(set(file_sharer_ids))
+    sharer_ids.discard(request.user.id)
+
+    users_data = []
+    if sharer_ids:
+        sharers = UserModel.objects.filter(id__in=sharer_ids).order_by('username')
+        for u in sharers:
+            folder_count = Folder.objects.filter(
+                owner=u, shared_users=request.user
+            ).exclude(share_mode='private').count()
+
+            file_count = MediaFile.objects.filter(
+                owner=u, shared_users=request.user
+            ).exclude(share_mode='private').count()
+
+            users_data.append({
+                'id': u.id,
+                'username': u.username,
+                'folder_count': folder_count,
+                'file_count': file_count,
+                'total_items': folder_count + file_count
+            })
+
+    return JsonResponse({
+        'success': True,
+        'users': users_data
+    })
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_shared_drive_user_contents(request, user_id):
+    """
+    Returns root-level folders and files shared by a specific user with request.user.
+    """
+    from django.contrib.auth import get_user_model
+    UserModel = get_user_model()
+
+    try:
+        sharer = UserModel.objects.get(id=user_id)
+    except UserModel.DoesNotExist:
+        return JsonResponse({'error': 'User not found.'}, status=404)
+
+    shared_folders = Folder.objects.filter(
+        owner=sharer,
+        shared_users=request.user
+    ).exclude(share_mode='private').annotate(file_count=Count('files')).order_by('name')
+
+    shared_files = MediaFile.objects.filter(
+        owner=sharer,
+        shared_users=request.user
+    ).exclude(share_mode='private').order_by('-created_at')
+
+    breadcrumbs = [
+        {'id': None, 'name': 'Shared Drive', 'type': 'shared_root'},
+        {'id': sharer.id, 'name': sharer.username, 'type': 'shared_user'}
+    ]
+
+    return JsonResponse({
+        'success': True,
+        'sharer': {'id': sharer.id, 'username': sharer.username},
+        'breadcrumbs': breadcrumbs,
+        'folders': [
+            {
+                'id': f.id,
+                'name': f.name,
+                'parent_id': f.parent_id,
+                'file_count': f.file_count,
+                'created_at': f.created_at.isoformat(),
+                'is_shared_root': True,
+            }
+            for f in shared_folders
+        ],
+        'files': [
+            {
+                'id': mf.id,
+                'filename': mf.filename,
+                'file_size': mf.file_size,
+                'mime_type': mf.mime_type,
+                'icon_type': get_file_icon(mf.mime_type),
+                'thumbnail_url': build_thumb_url(request, mf),
+                'preview_url': build_preview_url(request, mf),
+                'stream_url': f'/stream/{mf.id}/',
+                'created_at': mf.created_at.isoformat(),
+            }
+            for mf in shared_files
+        ]
+    })
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_shared_drive_folder_contents(request, folder_id):
+    """
+    Returns contents of a shared folder (or subfolder) navigated from Shared Drive.
+    Strictly verifies that request.user has access to this folder.
+    """
+    try:
+        target_folder = Folder.objects.select_related('owner').get(id=folder_id)
+    except Folder.DoesNotExist:
+        return JsonResponse({'error': 'Folder not found.'}, status=404)
+
+    if not user_has_share_access_to_folder(request.user, target_folder):
+        return JsonResponse({'error': 'Access Denied: You do not have permission to view this folder.'}, status=403)
+
+    sharer = target_folder.owner
+
+    # Build breadcrumbs starting from Shared Drive -> Sharer username -> root shared folder -> current subfolder
+    chain = []
+    curr = target_folder
+    while curr:
+        chain.append({'id': curr.id, 'name': curr.name, 'type': 'folder'})
+        if curr.shared_users.filter(id=request.user.id).exists() or not curr.parent:
+            break
+        curr = curr.parent
+
+    breadcrumbs = [
+        {'id': None, 'name': 'Shared Drive', 'type': 'shared_root'},
+        {'id': sharer.id, 'name': sharer.username, 'type': 'shared_user'},
+    ] + list(reversed(chain))
+
+    subfolders = Folder.objects.filter(parent=target_folder).annotate(file_count=Count('files')).order_by('name')
+    files = MediaFile.objects.filter(folder=target_folder).order_by('-created_at')
+
+    return JsonResponse({
+        'success': True,
+        'folder': {'id': target_folder.id, 'name': target_folder.name, 'parent_id': target_folder.parent_id},
+        'sharer': {'id': sharer.id, 'username': sharer.username},
+        'breadcrumbs': breadcrumbs,
+        'folders': [
+            {
+                'id': f.id,
+                'name': f.name,
+                'parent_id': f.parent_id,
+                'file_count': f.file_count,
+                'created_at': f.created_at.isoformat(),
+            }
+            for f in subfolders
+        ],
+        'files': [
+            {
+                'id': mf.id,
+                'filename': mf.filename,
+                'file_size': mf.file_size,
+                'mime_type': mf.mime_type,
+                'icon_type': get_file_icon(mf.mime_type),
+                'thumbnail_url': build_thumb_url(request, mf),
+                'preview_url': build_preview_url(request, mf),
+                'stream_url': f'/stream/{mf.id}/',
+                'created_at': mf.created_at.isoformat(),
+            }
+            for mf in files
+        ]
+    })

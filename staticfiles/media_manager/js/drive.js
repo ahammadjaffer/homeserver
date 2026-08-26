@@ -3,7 +3,11 @@
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
 const State = {
+  currentSection: 'my_drive', // 'my_drive' | 'shared_users' | 'shared_user_contents' | 'shared_folder_contents'
   currentFolderId: null,
+  sharedUserId: null,
+  sharedUserName: '',
+  sharedUsers: [],
   breadcrumbs: [{ id: null, name: 'My Drive' }],
   folders: [],
   files: [],
@@ -15,6 +19,8 @@ const State = {
   uploadedBytes: 0,
   uploadStartTime: 0,
   completedUploads: 0,
+  lightboxIndex: -1,
+  lightboxList: [],
 };
 
 const MAX_CONCURRENT = 3;
@@ -74,6 +80,22 @@ function fileIconSvg(iconType, cssClass = '') {
   return icons[iconType] || icons.file;
 }
 
+// ─── NAVIGATION SWITCHING (MY DRIVE / SHARED DRIVE) ─────────────────────────
+async function switchToMyDrive() {
+  State.currentSection = 'my_drive';
+  document.getElementById('nav-my-drive')?.classList.add('active');
+  document.getElementById('nav-shared-drive')?.classList.remove('active');
+  await loadFolder(null);
+}
+
+async function switchToSharedDrive() {
+  State.currentSection = 'shared_users';
+  document.getElementById('nav-shared-drive')?.classList.add('active');
+  document.getElementById('nav-my-drive')?.classList.remove('active');
+  closeSidebar();
+  await loadSharedUsers();
+}
+
 // ─── SIDEBAR TOGGLE FOR MOBILE ──────────────────────────────────────────────
 function toggleSidebar() {
   document.querySelector('.sidebar')?.classList.toggle('open');
@@ -88,6 +110,9 @@ function closeSidebar() {
 // ─── LOAD FOLDER CONTENTS ───────────────────────────────────────────────────
 async function loadFolder(folderId) {
   closeSidebar();
+  State.currentSection = 'my_drive';
+  document.getElementById('nav-my-drive')?.classList.add('active');
+  document.getElementById('nav-shared-drive')?.classList.remove('active');
 
   const url = folderId == null
     ? '/api/folders/contents/'
@@ -107,6 +132,110 @@ async function loadFolder(folderId) {
   updateToolbarCount();
 }
 
+// ─── LOAD SHARED DRIVE (SHARED WITH ME) ─────────────────────────────────────
+async function loadSharedUsers() {
+  closeSidebar();
+  const data = await apiGet('/api/shared-with-me/users/');
+  if (!data.success) { toast('Failed to load shared drives', 'error'); return; }
+
+  State.currentSection = 'shared_users';
+  State.sharedUsers = data.users || [];
+  State.sharedUserId = null;
+  State.sharedUserName = '';
+  State.currentFolderId = null;
+  State.breadcrumbs = [{ id: null, name: 'Shared Drive', type: 'shared_root' }];
+  State.folders = [];
+  State.files = [];
+
+  renderBreadcrumbs();
+  renderSharedUsers();
+  updateToolbarCount();
+}
+
+function renderSharedUsers() {
+  const area = document.getElementById('files-area');
+  if (!area) return;
+
+  const q = State.searchQuery.toLowerCase();
+  const filteredUsers = State.sharedUsers.filter(u => u.username.toLowerCase().includes(q));
+
+  if (filteredUsers.length === 0) {
+    area.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      <p>${State.searchQuery ? 'No shared drives match your search.' : 'No shared drives yet. When other users share files or folders with you, they will appear here.'}</p>
+    </div>`;
+    return;
+  }
+
+  let html = '';
+  if (State.viewMode === 'grid') {
+    html += `<div class="section-heading">Users Who Shared With You</div><div class="file-grid">`;
+    filteredUsers.forEach(u => {
+      html += `<div class="file-card shared-user-card" onclick="loadSharedUserContents(${u.id}, '${escAttr(u.username)}')">
+        <div class="card-thumb shared-user-thumb">
+          <div class="shared-user-avatar">${esc(u.username.slice(0, 1).toUpperCase())}</div>
+        </div>
+        <div class="card-info">
+          <div class="card-name" title="${escAttr(u.username)}">${esc(u.username)}</div>
+          <div class="card-meta">${u.total_items} shared item${u.total_items !== 1 ? 's' : ''}</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `<div class="section-heading" style="display:flex;gap:8px;padding:8px 12px;margin-top:8px;">
+      <span style="flex:1">User</span>
+      <span style="width:120px;text-align:right">Shared Items</span>
+    </div><div class="file-list">`;
+    filteredUsers.forEach(u => {
+      html += `<div class="list-item shared-user-card" onclick="loadSharedUserContents(${u.id}, '${escAttr(u.username)}')">
+        <div class="list-icon">
+          <div class="shared-user-avatar-sm">${esc(u.username.slice(0, 1).toUpperCase())}</div>
+        </div>
+        <div class="list-name">${esc(u.username)}</div>
+        <div class="list-size" style="width:120px">${u.total_items} item${u.total_items !== 1 ? 's' : ''}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  area.innerHTML = html;
+}
+
+async function loadSharedUserContents(userId, username) {
+  closeSidebar();
+  const data = await apiGet(`/api/shared-with-me/users/${userId}/contents/`);
+  if (!data.success) { toast('Failed to load shared contents', 'error'); return; }
+
+  State.currentSection = 'shared_user_contents';
+  State.sharedUserId = userId;
+  State.sharedUserName = username;
+  State.currentFolderId = null;
+  State.breadcrumbs = data.breadcrumbs;
+  State.folders = data.folders;
+  State.files = data.files;
+
+  renderBreadcrumbs();
+  renderContents();
+  updateToolbarCount();
+}
+
+async function loadSharedFolderContents(folderId) {
+  closeSidebar();
+  const data = await apiGet(`/api/shared-with-me/folders/${folderId}/contents/`);
+  if (!data.success) { toast('Failed to load shared folder', 'error'); return; }
+
+  State.currentSection = 'shared_folder_contents';
+  State.currentFolderId = folderId;
+  State.breadcrumbs = data.breadcrumbs;
+  State.folders = data.folders;
+  State.files = data.files;
+
+  renderBreadcrumbs();
+  renderContents();
+  updateToolbarCount();
+}
+
 // ─── RENDER BREADCRUMBS ──────────────────────────────────────────────────────
 function renderBreadcrumbs() {
   const bar = document.getElementById('breadcrumb-bar');
@@ -114,13 +243,30 @@ function renderBreadcrumbs() {
   bar.innerHTML = State.breadcrumbs.map((bc, i) => {
     const isLast = i === State.breadcrumbs.length - 1;
     const sep = i > 0 ? `<span class="bc-sep">/</span>` : '';
+    let clickHandler = '';
+    if (!isLast) {
+      if (bc.type === 'shared_root') {
+        clickHandler = 'loadSharedUsers()';
+      } else if (bc.type === 'shared_user') {
+        clickHandler = `loadSharedUserContents(${bc.id}, '${escAttr(bc.name)}')`;
+      } else if (State.currentSection.startsWith('shared_') && bc.id != null) {
+        clickHandler = `loadSharedFolderContents(${bc.id})`;
+      } else {
+        clickHandler = `loadFolder(${JSON.stringify(bc.id)})`;
+      }
+    }
     return `${sep}<span class="bc-item ${isLast ? 'active' : ''}" 
-      onclick="${isLast ? '' : `loadFolder(${JSON.stringify(bc.id)})`}">${bc.name}</span>`;
+      ${clickHandler ? `onclick="${clickHandler}"` : ''}>${esc(bc.name)}</span>`;
   }).join('');
 }
 
 // ─── RENDER FILE GRID / LIST ─────────────────────────────────────────────────
 function renderContents() {
+  if (State.currentSection === 'shared_users') {
+    renderSharedUsers();
+    return;
+  }
+
   const area = document.getElementById('files-area');
   if (!area) return;
 
@@ -129,9 +275,14 @@ function renderContents() {
   const filteredFiles   = State.files.filter(f => f.filename.toLowerCase().includes(q));
 
   if (filteredFolders.length === 0 && filteredFiles.length === 0) {
+    const emptyMsg = State.searchQuery
+      ? 'No results found.'
+      : (State.currentSection.startsWith('shared_')
+          ? 'No files or folders shared in this location.'
+          : 'This folder is empty. Upload files or create a folder to get started.');
     area.innerHTML = `<div class="empty-state">
       <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
-      <p>${State.searchQuery ? 'No results found.' : 'This folder is empty. Upload files or create a folder to get started.'}</p>
+      <p>${emptyMsg}</p>
     </div>`;
     return;
   }
@@ -166,10 +317,14 @@ function renderContents() {
 }
 
 function renderFolderCard(f) {
+  const isShared = State.currentSection.startsWith('shared_');
+  const dblClickAction = isShared ? `loadSharedFolderContents(${f.id})` : `loadFolder(${f.id})`;
+  const clickAction = `handleCardClick(event,'folder',${f.id},'${escAttr(f.name)}')`;
+
   return `<div class="file-card folder-card" 
-      ondblclick="loadFolder(${f.id})"
+      ondblclick="${dblClickAction}"
       oncontextmenu="showContextMenu(event,'folder',${f.id},'${escAttr(f.name)}')" 
-      onclick="handleCardClick(event,'folder',${f.id},'${escAttr(f.name)}')">
+      onclick="${clickAction}">
     <div class="card-thumb">${fileIconSvg('folder')}</div>
     <div class="card-info">
       <div class="card-name" title="${escAttr(f.name)}">${esc(f.name)}</div>
@@ -221,7 +376,10 @@ function renderFileCard(f) {
 }
 
 function renderFolderListItem(f) {
-  return `<div class="list-item" ondblclick="loadFolder(${f.id})"
+  const isShared = State.currentSection.startsWith('shared_');
+  const dblClickAction = isShared ? `loadSharedFolderContents(${f.id})` : `loadFolder(${f.id})`;
+
+  return `<div class="list-item" ondblclick="${dblClickAction}"
       oncontextmenu="showContextMenu(event,'folder',${f.id},'${escAttr(f.name)}')">
     <div class="list-icon">${fileIconSvg('folder','').replace('width:52px;height:52px','').replace('52px','22px')}</div>
     <div class="list-name">${esc(f.name)}</div>
@@ -239,8 +397,8 @@ function renderFileListItem(f) {
   return `<div class="list-item"
       onclick="handleFileClick(event,${f.id},'${escAttr(f.filename)}','${escAttr(f.mime_type)}','${escAttr(f.stream_url)}')"
       oncontextmenu="showContextMenu(event,'file',${f.id},'${escAttr(f.filename)}')">
-    <div class="list-icon">${fileIconSvg(f.icon_type)}</div>
-    <div class="list-name">${esc(f.filename)}</div>
+    <div class="list-icon">${fileIconSvg(f.icon_type,'').replace('width:52px;height:52px','').replace('52px','22px')}</div>
+    <div class="list-name" title="${escAttr(f.filename)}">${esc(f.filename)}</div>
     <div class="list-size">${formatBytes(f.file_size)}</div>
     <div class="list-date">${formatDate(f.created_at)}</div>
     <div class="list-actions">
@@ -253,7 +411,12 @@ function renderFileListItem(f) {
 
 function updateToolbarCount() {
   const el = document.getElementById('toolbar-count');
-  if (el) el.textContent = `${State.folders.length} folder${State.folders.length !== 1 ? 's' : ''}, ${State.files.length} file${State.files.length !== 1 ? 's' : ''}`;
+  if (!el) return;
+  if (State.currentSection === 'shared_users') {
+    el.textContent = `${State.sharedUsers.length} user${State.sharedUsers.length !== 1 ? 's' : ''}`;
+  } else {
+    el.textContent = `${State.folders.length} folder${State.folders.length !== 1 ? 's' : ''}, ${State.files.length} file${State.files.length !== 1 ? 's' : ''}`;
+  }
 }
 
 // ─── SIDEBAR FOLDER TREE ─────────────────────────────────────────────────────
@@ -286,15 +449,19 @@ function buildTreeHtml(nodes, depth) {
 // ─── CARD CLICK HANDLING ─────────────────────────────────────────────────────
 function handleCardClick(event, type, id, name) {
   if (type === 'folder') {
-    // single click selects, double-click navigates (handled by ondblclick)
+    if (window.innerWidth <= 768) {
+      if (State.currentSection.startsWith('shared_')) {
+        loadSharedFolderContents(id);
+      } else {
+        loadFolder(id);
+      }
+    }
   }
 }
 
 function handleFileClick(event, id, filename, mimeType, streamUrl) {
-  if (mimeType && mimeType.startsWith('image/')) {
-    openImageLightbox(streamUrl, filename);
-  } else if (mimeType && mimeType.startsWith('video/')) {
-    openVideoLightbox(streamUrl, filename);
+  if (mimeType && (mimeType.startsWith('image/') || mimeType.startsWith('video/'))) {
+    openMediaLightbox(id);
   } else {
     window.open(streamUrl, '_blank');
   }
@@ -311,44 +478,63 @@ function showContextMenu(event, type, id, name) {
   const menu = document.getElementById('context-menu');
   if (!menu) return;
 
+  const isShared = State.currentSection.startsWith('shared_');
+
   // Build items
   let items = '';
-  if (type === 'folder') {
-    items = `
-      <div class="ctx-item" onclick="ctxOpen()">
-        <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>Open
-      </div>
-      <div class="ctx-item" onclick="ctxShare()">
-        <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>Share / Link
-      </div>
-      <div class="ctx-item" onclick="ctxRenameFolder()">
-        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>Rename
-      </div>
-      <div class="ctx-divider"></div>
-      <div class="ctx-item danger" onclick="ctxDeleteFolder()">
-        <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>Delete
-      </div>`;
+  if (isShared) {
+    if (type === 'folder') {
+      items = `
+        <div class="ctx-item" onclick="ctxOpen()">
+          <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>Open
+        </div>`;
+    } else {
+      items = `
+        <div class="ctx-item" onclick="ctxOpenFile()">
+          <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>Open / Preview
+        </div>
+        <div class="ctx-item" onclick="ctxDownloadFile()">
+          <svg viewBox="0 0 24 24"><path d="M12 16l-5-5h3V4h4v7h3l-5 5zm9 4H3v-2h18v2z"/></svg>Download
+        </div>`;
+    }
   } else {
-    items = `
-      <div class="ctx-item" onclick="ctxOpenFile()">
-        <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>Open / Preview
-      </div>
-      <div class="ctx-item" onclick="ctxShare()">
-        <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>Share / Link
-      </div>
-      <div class="ctx-item" onclick="ctxDownloadFile()">
-        <svg viewBox="0 0 24 24"><path d="M12 16l-5-5h3V4h4v7h3l-5 5zm9 4H3v-2h18v2z"/></svg>Download
-      </div>
-      <div class="ctx-item" onclick="ctxRenameFile()">
-        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>Rename
-      </div>
-      <div class="ctx-item" onclick="ctxMoveFile()">
-        <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>Move to…
-      </div>
-      <div class="ctx-divider"></div>
-      <div class="ctx-item danger" onclick="ctxDeleteFile()">
-        <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>Delete
-      </div>`;
+    if (type === 'folder') {
+      items = `
+        <div class="ctx-item" onclick="ctxOpen()">
+          <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>Open
+        </div>
+        <div class="ctx-item" onclick="ctxShare()">
+          <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>Share / Link
+        </div>
+        <div class="ctx-item" onclick="ctxRenameFolder()">
+          <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>Rename
+        </div>
+        <div class="ctx-divider"></div>
+        <div class="ctx-item danger" onclick="ctxDeleteFolder()">
+          <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>Delete
+        </div>`;
+    } else {
+      items = `
+        <div class="ctx-item" onclick="ctxOpenFile()">
+          <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>Open / Preview
+        </div>
+        <div class="ctx-item" onclick="ctxShare()">
+          <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>Share / Link
+        </div>
+        <div class="ctx-item" onclick="ctxDownloadFile()">
+          <svg viewBox="0 0 24 24"><path d="M12 16l-5-5h3V4h4v7h3l-5 5zm9 4H3v-2h18v2z"/></svg>Download
+        </div>
+        <div class="ctx-item" onclick="ctxRenameFile()">
+          <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>Rename
+        </div>
+        <div class="ctx-item" onclick="ctxMoveFile()">
+          <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>Move to…
+        </div>
+        <div class="ctx-divider"></div>
+        <div class="ctx-item danger" onclick="ctxDeleteFile()">
+          <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>Delete
+        </div>`;
+    }
   }
 
   menu.innerHTML = items;
@@ -367,7 +553,16 @@ function hideContextMenu() {
 }
 
 // Context menu actions
-function ctxOpen()        { loadFolder(_ctx.id); hideContextMenu(); }
+function ctxOpen() {
+  hideContextMenu();
+  if (_ctx.type === 'folder') {
+    if (State.currentSection.startsWith('shared_')) {
+      loadSharedFolderContents(_ctx.id);
+    } else {
+      loadFolder(_ctx.id);
+    }
+  }
+}
 function ctxOpenFile()    {
   const file = State.files.find(f => f.id === _ctx.id);
   if (file) handleFileClick(null, file.id, file.filename, file.mime_type, file.stream_url);
@@ -481,6 +676,10 @@ function selectMoveTarget(el, folderId) {
 
 // ─── NEW FOLDER ──────────────────────────────────────────────────────────────
 function createFolderPrompt() {
+  if (State.currentSection.startsWith('shared_')) {
+    toast('Creating folders is only allowed in My Drive.', 'error');
+    return;
+  }
   showModal('rename-modal');
   const inp = document.getElementById('rename-input');
   const title = document.getElementById('rename-modal-title');
@@ -503,6 +702,9 @@ function hideModal(id) { document.getElementById(id)?.classList.remove('active')
 
 // ─── UPLOAD ──────────────────────────────────────────────────────────────────
 function openUploadPanel() {
+  if (State.currentSection.startsWith('shared_')) {
+    switchToMyDrive();
+  }
   document.getElementById('upload-panel').classList.add('open');
 }
 function closeUploadPanel() {
@@ -658,33 +860,113 @@ function updateQuota() {
   if (label) label.textContent = `${formatBytes(used)} of ${formatBytes(quota)} used`;
 }
 
-// ─── LIGHTBOX ────────────────────────────────────────────────────────────────
+// ─── LIGHTBOX (GALLERY VIEWER & SWIPE GESTURES) ───────────────────────────
+function getLightboxMediaList() {
+  const q = State.searchQuery.toLowerCase();
+  return State.files.filter(f => {
+    const matchesSearch = !q || f.filename.toLowerCase().includes(q);
+    const isMedia = f.mime_type && (f.mime_type.startsWith('image/') || f.mime_type.startsWith('video/'));
+    return matchesSearch && isMedia;
+  });
+}
+
+function openMediaLightbox(fileId) {
+  const list = getLightboxMediaList();
+  State.lightboxList = list;
+  let idx = list.findIndex(f => f.id === fileId);
+  if (idx === -1) {
+    const fallback = State.files.find(f => f.id === fileId);
+    if (fallback) {
+      State.lightboxList = [fallback];
+      idx = 0;
+    } else {
+      return;
+    }
+  }
+  showLightboxItem(idx);
+}
+
 function openImageLightbox(src, filename) {
-  const lb = document.getElementById('lightbox');
-  const img = document.getElementById('lightbox-img');
-  const vid = document.getElementById('lightbox-video');
-  const dl  = document.getElementById('lightbox-dl');
-  const cap = document.getElementById('lightbox-caption');
-  if (!lb) return;
-  if (vid) { vid.pause(); vid.src = ''; vid.style.display = 'none'; }
-  img.src = src; img.style.display = 'block';
-  if (cap) cap.textContent = filename;
-  if (dl)  { dl.href = src; dl.download = filename; }
-  lb.classList.add('active');
+  const file = State.files.find(f => f.stream_url === src || f.filename === filename);
+  if (file) {
+    openMediaLightbox(file.id);
+  } else {
+    State.lightboxList = [{ filename, stream_url: src, mime_type: 'image/jpeg' }];
+    showLightboxItem(0);
+  }
 }
 
 function openVideoLightbox(src, filename) {
+  const file = State.files.find(f => f.stream_url === src || f.filename === filename);
+  if (file) {
+    openMediaLightbox(file.id);
+  } else {
+    State.lightboxList = [{ filename, stream_url: src, mime_type: 'video/mp4' }];
+    showLightboxItem(0);
+  }
+}
+
+function showLightboxItem(index) {
+  const list = State.lightboxList;
+  if (!list || list.length === 0) return;
+
+  if (index < 0) index = list.length - 1;
+  if (index >= list.length) index = 0;
+
+  State.lightboxIndex = index;
+  const file = list[index];
+
   const lb = document.getElementById('lightbox');
   const img = document.getElementById('lightbox-img');
   const vid = document.getElementById('lightbox-video');
   const dl  = document.getElementById('lightbox-dl');
   const cap = document.getElementById('lightbox-caption');
+  const counter = document.getElementById('lightbox-counter');
+  const prevBtn = document.getElementById('lightbox-prev-btn');
+  const nextBtn = document.getElementById('lightbox-next-btn');
+
   if (!lb) return;
-  if (img) { img.src = ''; img.style.display = 'none'; }
-  vid.src = src; vid.style.display = 'block'; vid.play();
-  if (cap) cap.textContent = filename;
-  if (dl)  { dl.href = src; dl.download = filename; }
+
+  const isVideo = file.mime_type && file.mime_type.startsWith('video/');
+  if (isVideo) {
+    if (img) { img.src = ''; img.style.display = 'none'; }
+    if (vid) {
+      vid.src = file.stream_url;
+      vid.style.display = 'block';
+      vid.play().catch(() => {});
+    }
+  } else {
+    if (vid) { vid.pause(); vid.src = ''; vid.style.display = 'none'; }
+    if (img) {
+      img.src = file.stream_url;
+      img.style.display = 'block';
+    }
+  }
+
+  if (cap) cap.textContent = file.filename;
+  if (dl)  { dl.href = file.stream_url; dl.download = file.filename; }
+  
+  if (counter) {
+    counter.textContent = list.length > 1 ? `${index + 1} / ${list.length}` : '';
+    counter.style.display = list.length > 1 ? 'inline-block' : 'none';
+  }
+
+  if (prevBtn) prevBtn.style.display = list.length > 1 ? 'flex' : 'none';
+  if (nextBtn) nextBtn.style.display = list.length > 1 ? 'flex' : 'none';
+
   lb.classList.add('active');
+}
+
+function lightboxPrev() {
+  if (State.lightboxList && State.lightboxList.length > 1) {
+    showLightboxItem(State.lightboxIndex - 1);
+  }
+}
+
+function lightboxNext() {
+  if (State.lightboxList && State.lightboxList.length > 1) {
+    showLightboxItem(State.lightboxIndex + 1);
+  }
 }
 
 function closeLightbox() {
@@ -694,6 +976,53 @@ function closeLightbox() {
   if (lb)  lb.classList.remove('active');
   if (img) { img.src = ''; img.style.display = 'none'; }
   if (vid) { vid.pause(); vid.src = ''; vid.style.display = 'none'; }
+  State.lightboxIndex = -1;
+  State.lightboxList = [];
+}
+
+// Touch swipe gestures for mobile
+let _lbTouchStartX = 0;
+let _lbTouchStartY = 0;
+let _lbTouchDeltaX = 0;
+let _lbTouchDeltaY = 0;
+let _lbIsSwiping = false;
+
+function initLightboxSwipeGestures() {
+  const lb = document.getElementById('lightbox');
+  if (!lb) return;
+
+  lb.addEventListener('touchstart', e => {
+    if (!lb.classList.contains('active')) return;
+    if (e.touches.length === 1) {
+      _lbTouchStartX = e.touches[0].clientX;
+      _lbTouchStartY = e.touches[0].clientY;
+      _lbTouchDeltaX = 0;
+      _lbTouchDeltaY = 0;
+      _lbIsSwiping = true;
+    }
+  }, { passive: true });
+
+  lb.addEventListener('touchmove', e => {
+    if (!_lbIsSwiping || e.touches.length !== 1) return;
+    _lbTouchDeltaX = e.touches[0].clientX - _lbTouchStartX;
+    _lbTouchDeltaY = e.touches[0].clientY - _lbTouchStartY;
+  }, { passive: true });
+
+  lb.addEventListener('touchend', () => {
+    if (!_lbIsSwiping) return;
+    _lbIsSwiping = false;
+
+    // Trigger if horizontal movement exceeds 40px and is primarily horizontal
+    if (Math.abs(_lbTouchDeltaX) > 40 && Math.abs(_lbTouchDeltaX) > Math.abs(_lbTouchDeltaY) * 1.1) {
+      if (_lbTouchDeltaX < 0) {
+        // Drag left -> Next image
+        lightboxNext();
+      } else {
+        // Drag right -> Previous image
+        lightboxPrev();
+      }
+    }
+  }, { passive: true });
 }
 
 // ─── SHARE MODAL & GRANULAR ACCESS CONTROL ──────────────────────────────────
@@ -897,8 +1226,22 @@ document.addEventListener('drop', e => {
   if (e.dataTransfer.files.length) onFilesSelected(e.dataTransfer.files);
 });
 
-// ─── ESCAPE TO CLOSE ────────────────────────────────────────────────────────
+// ─── KEYBOARD SHORTCUTS & ESCAPE TO CLOSE ──────────────────────────────────
 document.addEventListener('keydown', e => {
+  const lb = document.getElementById('lightbox');
+  if (lb && lb.classList.contains('active')) {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      lightboxPrev();
+      return;
+    }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      lightboxNext();
+      return;
+    }
+  }
+
   if (e.key === 'Escape') {
     closeLightbox();
     hideModal('rename-modal');
@@ -998,8 +1341,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-grid')?.classList.toggle('active', State.viewMode === 'grid');
   document.getElementById('btn-list')?.classList.toggle('active', State.viewMode === 'list');
 
-  // Initialize Video Hover Previews
+  // Initialize Video Hover Previews & Lightbox Swipe Gestures
   initVideoPreviewListeners();
+  initLightboxSwipeGestures();
 
   // Load root folder and sidebar tree
   await Promise.all([loadFolder(null), loadSidebarTree()]);

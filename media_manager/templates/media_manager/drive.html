@@ -44,9 +44,13 @@
 
             <!-- Navigation Links -->
             <nav class="sidebar-nav">
-                <div class="sidebar-nav-item active" onclick="loadFolder(null)">
+                <div class="sidebar-nav-item active" id="nav-my-drive" onclick="switchToMyDrive()">
                     <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
-                    My Drive
+                    <span>My Drive</span>
+                </div>
+                <div class="sidebar-nav-item" id="nav-shared-drive" onclick="switchToSharedDrive()">
+                    <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                    <span>Shared Drive</span>
                 </div>
             </nav>
 
@@ -173,12 +177,19 @@
 
     <!-- LIGHTBOX -->
     <div class="lightbox" id="lightbox">
-        <button class="lightbox-close-btn" onclick="closeLightbox()">&times;</button>
-        <div class="lightbox-inner">
+        <button class="lightbox-close-btn" onclick="closeLightbox()" title="Close (Esc)">&times;</button>
+        <button class="lightbox-nav-btn lightbox-prev-btn" id="lightbox-prev-btn" onclick="lightboxPrev()" title="Previous (Left Arrow / Swipe Right)">
+            <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
+        <button class="lightbox-nav-btn lightbox-next-btn" id="lightbox-next-btn" onclick="lightboxNext()" title="Next (Right Arrow / Swipe Left)">
+            <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </button>
+        <div class="lightbox-inner" id="lightbox-inner">
             <img id="lightbox-img" src="" alt="Preview">
             <video id="lightbox-video" controls autoplay></video>
             <div class="lightbox-footer">
                 <span class="lightbox-caption" id="lightbox-caption"></span>
+                <span class="lightbox-counter" id="lightbox-counter"></span>
                 <a href="" download class="lightbox-download" id="lightbox-dl">
                     <svg viewBox="0 0 24 24"><path d="M12 16l-5-5h3V4h4v7h3l-5 5zm9 4H3v-2h18v2z"/></svg>
                     Download

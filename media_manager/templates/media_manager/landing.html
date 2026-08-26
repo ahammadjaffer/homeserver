@@ -76,6 +76,7 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            cursor: pointer;
         }
 
         .btn-glow:hover {
@@ -96,6 +97,7 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            cursor: pointer;
         }
 
         .btn-outline:hover {
@@ -119,7 +121,7 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 6px 16px;
+            padding: 6px 18px;
             background: var(--accent-dim);
             border: 1px solid rgba(229, 9, 20, 0.3);
             border-radius: 30px;
@@ -137,7 +139,7 @@
             background: linear-gradient(135deg, #ffffff 0%, #b0b0d0 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            max-width: 900px;
+            max-width: 920px;
             margin-bottom: 20px;
         }
 
@@ -150,7 +152,7 @@
         .hero-sub {
             font-size: 1.15rem;
             color: var(--text-secondary);
-            max-width: 680px;
+            max-width: 720px;
             line-height: 1.6;
             margin-bottom: 36px;
         }
@@ -160,12 +162,14 @@
             align-items: center;
             gap: 16px;
             margin-bottom: 60px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         /* UI Preview Card */
         .hero-preview-frame {
             width: 100%;
-            max-width: 1000px;
+            max-width: 1020px;
             background: var(--bg-card);
             border: 1px solid var(--border-hover);
             border-radius: var(--radius-lg);
@@ -197,8 +201,8 @@
 
         .preview-body {
             display: grid;
-            grid-template-columns: 220px 1fr;
-            height: 380px;
+            grid-template-columns: 240px 1fr;
+            min-height: 380px;
             background: var(--bg-main);
             text-align: left;
         }
@@ -207,7 +211,7 @@
             background: var(--bg-sidebar);
             border-right: 1px solid var(--border);
             padding: 16px;
-            font-size: 0.8rem;
+            font-size: 0.82rem;
         }
 
         .preview-content {
@@ -251,7 +255,7 @@
         /* Section Header */
         .section-header {
             text-align: center;
-            max-width: 700px;
+            max-width: 760px;
             margin: 0 auto 50px;
         }
 
@@ -274,7 +278,7 @@
         .section-desc {
             font-size: 1rem;
             color: var(--text-secondary);
-            line-height: 1.5;
+            line-height: 1.6;
         }
 
         /* Grid Cards */
@@ -294,12 +298,33 @@
             padding: 28px;
             text-align: left;
             transition: all var(--transition);
+            position: relative;
+        }
+
+        .feature-card.highlight-card {
+            border-color: rgba(229, 9, 20, 0.4);
+            background: linear-gradient(145deg, rgba(229, 9, 20, 0.06), var(--bg-card));
         }
 
         .feature-card:hover {
-            border-color: var(--border-hover);
+            border-color: var(--accent);
             transform: translateY(-4px);
             box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+        }
+
+        .feature-badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 3px 8px;
+            border-radius: 12px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 1px solid rgba(229, 9, 20, 0.3);
         }
 
         .feature-icon {
@@ -331,6 +356,84 @@
             font-size: 0.88rem;
             color: var(--text-secondary);
             line-height: 1.6;
+        }
+
+        /* Mount Guide Section */
+        .mount-guide-section {
+            max-width: 1150px;
+            margin: 0 auto 100px;
+            padding: 0 20px;
+        }
+
+        .mount-guide-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 40px;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mount-tabs {
+            display: flex;
+            gap: 10px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .mount-tab-btn {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            padding: 8px 18px;
+            border-radius: var(--radius-md);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mount-tab-btn.active, .mount-tab-btn:hover {
+            background: var(--accent-dim);
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .mount-panel {
+            display: none;
+        }
+
+        .mount-panel.active {
+            display: block;
+        }
+
+        .code-snippet-box {
+            background: #06060a;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 16px 20px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.9rem;
+            color: #4ade80;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 14px 0 18px;
+            overflow-x: auto;
+        }
+
+        .step-list {
+            margin-top: 14px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.7;
+            padding-left: 20px;
         }
 
         /* Use Cases Section */
@@ -444,6 +547,7 @@
             .landing-navbar { padding: 0 20px; }
             .preview-body { grid-template-columns: 1fr; }
             .preview-sidebar { display: none; }
+            .mount-guide-container { padding: 24px; }
         }
     </style>
 </head>
@@ -460,6 +564,7 @@
 
         <nav class="landing-nav-links">
             <a href="#features">Features</a>
+            <a href="#mount-guide">Desktop Mount</a>
             <a href="#usecases">Use Cases</a>
         </nav>
 
@@ -480,7 +585,7 @@
     <!-- HERO SECTION -->
     <section class="hero-section">
         <div class="hero-pill">
-            <span>⚡ Self-Hosted • Zero-Cloud • High-Speed LAN Media Server</span>
+            <span>⚡ Self-Hosted • Zero-Cloud • Native WebDAV & High-Speed Media Server</span>
         </div>
 
         <h1 class="hero-title">
@@ -488,7 +593,7 @@
         </h1>
 
         <p class="hero-sub">
-            Store, stream, and share your photos, 4K videos, and personal files with ultimate speed. Powered by local hardware, GPU-accelerated video encoding, and 128-bit encrypted granular access control.
+            Store, stream, and edit your photos, 4K videos, and files directly on your desktop with zero latency. Mount as a native network drive (Z:), enjoy instant FFmpeg video hover previews, and share securely.
         </p>
 
         <div class="hero-ctas">
@@ -504,6 +609,10 @@
                     Create Account
                 </a>
             {% endif %}
+            <a href="#mount-guide" class="btn-outline" style="padding:14px 24px; font-size:1rem;">
+                <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg>
+                Mount as Z: Drive
+            </a>
         </div>
 
         <!-- MOCK DRIVE UI PREVIEW -->
@@ -520,31 +629,36 @@
                         <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:var(--accent);"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
                         My Drive
                     </div>
-                    <div style="color:var(--text-secondary); padding:4px 8px; border-radius:4px; background:var(--accent-dim);">📁 Media Vault</div>
-                    <div style="color:var(--text-muted); padding:4px 8px;">📁 Family Photos</div>
-                    <div style="color:var(--text-muted); padding:4px 8px;">📁 Video Edits</div>
-                    <div style="color:var(--text-muted); padding:4px 8px;">👥 Shared with Me</div>
+                    <div style="color:var(--text-secondary); padding:6px 8px; border-radius:4px; background:var(--accent-dim); margin-bottom:4px;">📁 Media Vault</div>
+                    <div style="color:var(--text-muted); padding:6px 8px; margin-bottom:4px;">📁 Family Photos</div>
+                    <div style="color:var(--text-muted); padding:6px 8px; margin-bottom:12px;">📁 Video Edits</div>
+                    
+                    <div style="font-weight:700; color:var(--text-primary); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:var(--text-secondary);"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                        Shared Drive
+                    </div>
+                    <div style="color:var(--text-muted); padding:4px 8px;">👤 Alice's Projects</div>
                 </div>
                 <div class="preview-content">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                         <span style="font-weight:700; font-size:0.95rem;">My Drive / Media Vault</span>
-                        <span style="font-size:0.75rem; color:var(--success); background:rgba(34,197,94,0.15); padding:2px 8px; border-radius:10px;">👥 Restricted Access</span>
+                        <span style="font-size:0.75rem; color:var(--success); background:rgba(34,197,94,0.15); padding:2px 8px; border-radius:10px;">⚡ WebDAV Delta-Synced</span>
                     </div>
                     <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
                         <div style="background:var(--bg-card); border:1px solid var(--border); padding:12px; border-radius:8px;">
                             <div style="font-size:1.8rem; margin-bottom:6px;">🎬</div>
                             <div style="font-size:0.8rem; font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">Vacation_4K.mp4</div>
-                            <div style="font-size:0.7rem; color:var(--text-muted);">1.4 GB • NVENC 60fps</div>
+                            <div style="font-size:0.7rem; color:var(--accent);">Hover Scrubbing Strip • NVENC</div>
                         </div>
                         <div style="background:var(--bg-card); border:1px solid var(--border); padding:12px; border-radius:8px;">
                             <div style="font-size:1.8rem; margin-bottom:6px;">📸</div>
                             <div style="font-size:0.8rem; font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">IMG_9821.jpg</div>
-                            <div style="font-size:0.7rem; color:var(--text-muted);">4.2 MB • HEIC Converted</div>
+                            <div style="font-size:0.7rem; color:var(--text-muted);">Swipe Lightbox Gallery</div>
                         </div>
                         <div style="background:var(--bg-card); border:1px solid var(--border); padding:12px; border-radius:8px;">
                             <div style="font-size:1.8rem; margin-bottom:6px;">📄</div>
-                            <div style="font-size:0.8rem; font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">Project_Notes.pdf</div>
-                            <div style="font-size:0.7rem; color:var(--text-muted);">2.1 MB • Shared</div>
+                            <div style="font-size:0.8rem; font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">Project_Notes.docx</div>
+                            <div style="font-size:0.7rem; color:var(--text-muted);">Desktop Z: Direct Edit</div>
                         </div>
                     </div>
                 </div>
@@ -556,12 +670,12 @@
     <section class="stats-bar">
         <div class="stats-container">
             <div>
-                <div class="stat-number">10 <span class="red">GB+</span></div>
-                <div class="stat-label">Single File Upload Limit</div>
+                <div class="stat-number">WebDAV</div>
+                <div class="stat-label">RFC 4918 Desktop Mount</div>
             </div>
             <div>
                 <div class="stat-number">NVENC</div>
-                <div class="stat-label">Hardware Video Transcoding</div>
+                <div class="stat-label">GPU Video Hover Previews</div>
             </div>
             <div>
                 <div class="stat-number">100<span class="red">%</span></div>
@@ -577,58 +691,134 @@
     <!-- FEATURES MATRIX -->
     <section class="features-grid-section" id="features">
         <div class="section-header">
-            <div class="section-tag">ENGINEERED FOR SPEED & PRIVACY</div>
-            <h2 class="section-title">Built Like Commercial Cloud. Hosted at Home.</h2>
-            <p class="section-desc">NitroStream combines the intuitive interface of Google Drive and MEGA with local network gigabit bandwidth and GPU transcoding.</p>
+            <div class="section-tag">ENGINEERED FOR SPEED & PRODUCTIVITY</div>
+            <h2 class="section-title">Built Like Commercial Cloud. Hosted on Your Hardware.</h2>
+            <p class="section-desc">NitroStream combines the intuitive interface of Google Drive and MEGA with direct desktop network mounting, GPU video scrubbing, and gallery swipe navigation.</p>
         </div>
 
         <div class="features-grid">
-            <div class="feature-card">
+            <!-- Feature 1: WebDAV -->
+            <div class="feature-card highlight-card">
+                <span class="feature-badge">NEW</span>
                 <div class="feature-icon">
-                    <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+                    <svg viewBox="0 0 24 24"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg>
                 </div>
-                <div class="feature-title">Cloud File Manager SPA</div>
-                <div class="feature-desc">Unlimited nested folder subtrees, breadcrumb navigation, interactive sidebar trees, real-time gallery search, and grid/list view toggling.</div>
+                <div class="feature-title">Delta-Synced WebDAV Drive</div>
+                <div class="feature-desc">Mount NitroStream directly as a native network drive (e.g. <code>Z:</code>) in Windows File Explorer or Mac Finder. Open and edit files directly in Office, Photoshop, or VS Code without manual browser downloads.</div>
             </div>
 
+            <!-- Feature 2: Video Scrubbing -->
+            <div class="feature-card highlight-card">
+                <span class="feature-badge">NEW</span>
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>
+                </div>
+                <div class="feature-title">FFmpeg Video Scrubbing Strips</div>
+                <div class="feature-desc">Hovering over any video thumbnail plays an instant, lightweight animated WebP preview generated via FFmpeg and NVIDIA NVENC hardware acceleration without buffering the full file.</div>
+            </div>
+
+            <!-- Feature 3: Lightbox & Swipe -->
+            <div class="feature-card highlight-card">
+                <span class="feature-badge">NEW</span>
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                </div>
+                <div class="feature-title">Continuous Lightbox & Mobile Swipe</div>
+                <div class="feature-desc">Browse folders sequentially with Next/Prev buttons, keyboard arrows (<code>&larr;</code> / <code>&rarr;</code>), and smooth touch swipe gestures on mobile phones without closing the viewer.</div>
+            </div>
+
+            <!-- Feature 4: Shared Drive -->
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                </div>
+                <div class="feature-title">Shared Drive Navigation</div>
+                <div class="feature-desc">Dedicated sidebar section organizes content shared with you by user accounts, complete with deep subfolder traversal, breadcrumbs, and read-only safeguards.</div>
+            </div>
+
+            <!-- Feature 5: Granular Sharing -->
             <div class="feature-card">
                 <div class="feature-icon">
                     <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
                 </div>
-                <div class="feature-title">Granular Account Sharing</div>
-                <div class="feature-desc">Share files or folder subtrees with specific NitroStream accounts via username autocomplete search, or open access via 128-bit UUID link.</div>
+                <div class="feature-title">Granular Account & Link Sharing</div>
+                <div class="feature-desc">Share files or subtrees privately, with specific NitroStream users via username search autocomplete, or generate 128-bit UUID share links.</div>
             </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8s0 0 0 0z"/></svg>
-                </div>
-                <div class="feature-title">Subtree Security & Boundary Lock</div>
-                <div class="feature-desc">Strict recursive parent-chain validation prevents folder escaping. Shared recipients get read-only access without mutation rights.</div>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-                </div>
-                <div class="feature-title">GPU NVENC Video Transcoding</div>
-                <div class="feature-desc">Asynchronously transcode heavy MKV files to web-optimized MP4 using NVIDIA GPU acceleration, plus automated HEIC photo conversion.</div>
-            </div>
-
+            <!-- Feature 6: Protected Streaming -->
             <div class="feature-card">
                 <div class="feature-icon">
                     <svg viewBox="0 0 24 24"><path d="M13 2.05v3.03c3.39.49 6 3.39 6 6.92 0 .9-.18 1.75-.48 2.54l2.6 1.53c.56-1.24.88-2.62.88-4.07 0-5.18-3.95-9.45-9-9.95zM12 19c-3.87 0-7-3.13-7-7 0-3.53 2.61-6.43 6-6.92V2.05C5.94 2.55 2 6.82 2 12c0 5.52 4.48 10 10 10 2.47 0 4.73-.9 6.47-2.39l-2.12-2.12C15.08 18.37 13.6 19 12 19z"/></svg>
                 </div>
                 <div class="feature-title">Protected Nginx Media Streaming</div>
-                <div class="feature-desc">High-performance zero-copy byte streaming powered by Nginx <code>X-Accel-Redirect</code> sendfile offloading after authorization checks.</div>
+                <div class="feature-desc">Zero-copy byte-range video streaming powered by Nginx <code>X-Accel-Redirect</code> sendfile offloading after strict authorization verification.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- WEBDAV INTEGRATION / MOUNT GUIDE -->
+    <section class="mount-guide-section" id="mount-guide">
+        <div class="section-header">
+            <div class="section-tag">DESKTOP MOUNT INTEGRATION GUIDE</div>
+            <h2 class="section-title">Mount NitroStream as a Native Drive (Z:)</h2>
+            <p class="section-desc">Connect directly from Windows File Explorer, macOS Finder, or Linux using standard WebDAV credentials.</p>
+        </div>
+
+        <div class="mount-guide-container">
+            <div class="mount-tabs">
+                <button class="mount-tab-btn active" onclick="switchMountTab('windows')">
+                    <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+                    Windows File Explorer
+                </button>
+                <button class="mount-tab-btn" onclick="switchMountTab('macos')">
+                    <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 0.92-2.85-.9.04-2 .6-2.65 1.35-.58.66-.99 1.74-.86 2.76.99.08 2.02-.51 2.59-1.26z"/></svg>
+                    macOS Finder
+                </button>
+                <button class="mount-tab-btn" onclick="switchMountTab('linux')">
+                    <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                    Linux (davfs2)
+                </button>
             </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <svg viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
+            <!-- Windows Panel -->
+            <div class="mount-panel active" id="panel-windows">
+                <div style="font-weight:700; color:var(--text-primary); margin-bottom:8px;">Fast Command (PowerShell / Command Prompt):</div>
+                <div class="code-snippet-box">
+                    <span>net use Z: http://{{ request.get_host }}/webdav /user:your_username your_password</span>
                 </div>
-                <div class="feature-title">Mobile Drawer & Quick Upload FAB</div>
-                <div class="feature-desc">Off-canvas collapsible sidebar drawer with topbar hamburger button (`☰`) and fixed red floating action upload button (`+` FAB).</div>
+                <div style="font-weight:700; color:var(--text-primary); margin-top:18px;">Or via File Explorer GUI:</div>
+                <ol class="step-list">
+                    <li>Open <strong>File Explorer</strong> &rarr; Right-click <strong>This PC</strong> &rarr; Click <strong>Map network drive</strong>.</li>
+                    <li>Select Drive Letter <strong>Z:</strong> (or any available letter).</li>
+                    <li>In Folder enter: <code>http://{{ request.get_host }}/webdav/</code></li>
+                    <li>Check <strong>"Connect using different credentials"</strong> and enter your NitroStream username and password.</li>
+                </ol>
+            </div>
+
+            <!-- macOS Panel -->
+            <div class="mount-panel" id="panel-macos">
+                <div style="font-weight:700; color:var(--text-primary); margin-bottom:8px;">Connect via Finder:</div>
+                <div class="code-snippet-box">
+                    <span>http://{{ request.get_host }}/webdav/</span>
+                </div>
+                <ol class="step-list">
+                    <li>Open <strong>Finder</strong> &rarr; Press <kbd style="background:#222;padding:2px 6px;border-radius:4px;">Cmd + K</kbd> (or click <strong>Go &rarr; Connect to Server</strong>).</li>
+                    <li>Enter Server Address: <code>http://{{ request.get_host }}/webdav/</code> and click <strong>Connect</strong>.</li>
+                    <li>Choose <strong>Registered User</strong> and enter your NitroStream username and password.</li>
+                </ol>
+            </div>
+
+            <!-- Linux Panel -->
+            <div class="mount-panel" id="panel-linux">
+                <div style="font-weight:700; color:var(--text-primary); margin-bottom:8px;">Mount via davfs2:</div>
+                <div class="code-snippet-box">
+                    <span>sudo mount -t davfs http://{{ request.get_host }}/webdav/ /mnt/nitrostream</span>
+                </div>
+                <ol class="step-list">
+                    <li>Install davfs2: <code>sudo apt install davfs2</code></li>
+                    <li>Create mountpoint: <code>sudo mkdir -p /mnt/nitrostream</code></li>
+                    <li>Mount with the command above and enter your credentials when prompted.</li>
+                </ol>
             </div>
         </div>
     </section>
@@ -638,34 +828,34 @@
         <div class="section-header">
             <div class="section-tag">TAILORED FOR HOME & WORK LABS</div>
             <h2 class="section-title">Built for Real Everyday Scenarios</h2>
-            <p class="section-desc">Whether organizing personal photo vaults or streaming high-bitrate video edits, NitroStream handles it effortlessly.</p>
+            <p class="section-desc">Whether editing video timelines on your desktop, browsing photo albums on your phone, or sharing event albums, NitroStream handles it effortlessly.</p>
         </div>
 
         <div class="usecase-grid">
             <div class="usecase-card">
                 <div class="usecase-title">
-                    <span>🏠</span> Home Media Vault
+                    <span>🖥️</span> Direct Desktop Editing
                 </div>
                 <div class="usecase-desc">
-                    Stream your movie collection, home videos, and high-res photography directly to your TV, laptop, or mobile browser without cloud compression.
+                    Mount as a Z: drive and edit Word files, Premiere projects, and Lightroom libraries directly on your server with automatic background delta sync.
                 </div>
             </div>
 
             <div class="usecase-card">
                 <div class="usecase-title">
-                    <span>👥</span> Private Family Account Shares
+                    <span>🎬</span> 4K Video Scrubbing
                 </div>
                 <div class="usecase-desc">
-                    Grant specific family members access to designated event folders using live username search while keeping your private drive items locked.
+                    Hover over any video in your library to preview key scenes instantly via GPU-accelerated WebP strips without loading gigabytes of raw data.
                 </div>
             </div>
 
             <div class="usecase-card">
                 <div class="usecase-title">
-                    <span>⚡</span> High-Speed Local Wi-Fi Backup
+                    <span>👥</span> Granular Family Sharing
                 </div>
                 <div class="usecase-desc">
-                    Dump multi-gigabyte raw camera files, drone footage, and project assets over home Wi-Fi with instant batch drag-and-drop uploads.
+                    Grant specific family members access to designated folders with live username search, while exploring items shared with you in the Shared Drive menu.
                 </div>
             </div>
         </div>
@@ -674,7 +864,7 @@
     <!-- CTA BANNER -->
     <section class="cta-banner">
         <h2>Ready to Access Your Media Vault?</h2>
-        <p>Log in with your NitroStream account to start managing files, streaming media, and configuring share permissions.</p>
+        <p>Log in with your NitroStream account to start managing files, streaming media, and configuring desktop network drives.</p>
 
         {% if user.is_authenticated %}
             <a href="{% url 'list_images' %}" class="btn-glow" style="padding:16px 36px; font-size:1.05rem;">
@@ -698,6 +888,19 @@
             </div>
         </div>
     </footer>
+
+    <script>
+        function switchMountTab(platform) {
+            document.querySelectorAll('.mount-tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.mount-panel').forEach(panel => panel.classList.remove('active'));
+            
+            const selectedBtn = Array.from(document.querySelectorAll('.mount-tab-btn')).find(b => b.textContent.toLowerCase().includes(platform));
+            if (selectedBtn) selectedBtn.classList.add('active');
+            
+            const panel = document.getElementById('panel-' + platform);
+            if (panel) panel.classList.add('active');
+        }
+    </script>
 
 </body>
 </html>
