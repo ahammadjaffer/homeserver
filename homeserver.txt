@@ -75,6 +75,9 @@ Verify installation:
      - Protected Streaming: Nginx `X-Accel-Redirect` streaming checks account authorization before delivering media bytes.
      - Mobile Responsiveness: Off-canvas drawer menu (`☰`) and fixed floating action upload button (`+` FAB).
      - FFmpeg Video Scrubbing Strips: Low-bitrate animated WebP hover previews with NVIDIA NVENC/CUDA hardware acceleration fallback. Instant looping video preview on hover in the Drive UI.
+     - Continuous Lightbox Gallery: Next/Prev buttons, keyboard arrow navigation (`←` / `→`), and responsive touch swipe gestures on mobile devices.
+     - Dedicated Shared Drive Section: Left sidebar menu organizes content shared with you by user accounts, complete with deep subfolder traversal, breadcrumbs, and read-only safeguards.
+     - Delta-Synced WebDAV Network Drive: Mount NitroStream directly as a desktop network drive on Windows (`net use Z: http://<ip>/webdav /user:<user> <pass>`), macOS Finder, or Linux. Direct desktop editing with automatic delta sync, quota checks, and thumbnail generation.
 
 
 --------------------------------------------------------------------------------
@@ -103,7 +106,18 @@ Verify installation:
 
 [ Client Access ]
   Devices on your home Wi-Fi can access the server via your laptop's IP address:
-  http://192.168.x.x
+  Web Interface : http://192.168.x.x
+  WebDAV Share  : http://192.168.x.x/webdav/
+
+[ Mounting as a Network Drive on Windows ]
+  Command line (PowerShell or CMD):
+    net use Z: http://192.168.x.x/webdav /user:your_username your_password
+
+  Windows File Explorer UI:
+    1. Open File Explorer -> This PC -> "Map network drive".
+    2. Drive Letter: Z: (or any available letter).
+    3. Folder: http://192.168.x.x/webdav/
+    4. Check "Connect using different credentials" and enter your NitroStream username/password.
 ================================================================================
 
 

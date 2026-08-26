@@ -19,7 +19,7 @@ def start_server():
     print("Starting NitroStream on Waitress with Auto-Reload on http://0.0.0.0:8000 ...")
     serve(
         application,
-        host='0.0.0.0',    # Bind to 0.0.0.0 to support 192.168.1.13 and network devices
+        host='0.0.0.0',    # Bind to 0.0.0.0 to accept connections from all network interfaces (e.g. your LAN IP)
         port=8000,
         threads=8,
         channel_timeout=60,

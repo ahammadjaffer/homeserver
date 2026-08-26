@@ -1,5 +1,6 @@
-from django.urls import path
+from django.urls import path, re_path
 from . import views
+from . import webdav
 
 urlpatterns = [
     # Public Landing Page & Drive SPA Root
@@ -44,5 +45,8 @@ urlpatterns = [
     path('api/shared-with-me/users/', views.get_shared_drive_users, name='api_shared_drive_users'),
     path('api/shared-with-me/users/<int:user_id>/contents/', views.get_shared_drive_user_contents, name='api_shared_drive_user_contents'),
     path('api/shared-with-me/folders/<int:folder_id>/contents/', views.get_shared_drive_folder_contents, name='api_shared_drive_folder_contents'),
+
+    # Native WebDAV Interface (Desktop Network Drive Mounting)
+    re_path(r'^webdav/?(?P<path>.*)$', webdav.webdav_endpoint, name='webdav_endpoint'),
 ]
 
